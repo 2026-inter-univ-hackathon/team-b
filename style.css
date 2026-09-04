@@ -51,11 +51,40 @@ label { display: block; margin: 20px 0 8px; font-weight: 600; }
 
 /* ガラス調のカード */
 .card, fieldset {
-  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 20px;
+  background: rgba(40,44,90,.55); border: 1px solid var(--glass-line); border-radius: 20px;
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
 }
 #setup, #done { padding: 40px 48px; }
+/* ---------- 待機: 方眼と数式で理系らしく ---------- */
+#setup { position: relative; overflow: hidden; }
+#setup::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(160,180,255,.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,180,255,.14) 1px, transparent 1px),
+    linear-gradient(rgba(160,180,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,180,255,.05) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  mask-image: linear-gradient(115deg, transparent 30%, #000 70%);
+  -webkit-mask-image: linear-gradient(115deg, transparent 30%, #000 70%);
+}
+#setup > :not(.formulas) { position: relative; z-index: 1; }
+.formulas { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.formulas span {
+  position: absolute; left: var(--x); top: var(--y); transform: rotate(var(--r));
+  font-family: "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif; font-style: italic;
+  font-size: calc(1rem * var(--s)); color: rgba(190,200,255,.22); white-space: nowrap; letter-spacing: .02em;
+  animation: drift 9s ease-in-out infinite alternate;
+}
+.formulas span:nth-child(2n) { animation-duration: 12s; }
+.formulas span:nth-child(3n) { animation-delay: -4s; }
+.formulas sub, .formulas sup { font-size: .6em; }
+@keyframes drift { from { transform: rotate(var(--r)) translateY(0); } to { transform: rotate(var(--r)) translateY(-10px); } }
+.mono { font-family: ui-monospace, Menlo, monospace; color: rgba(190,200,255,.75); letter-spacing: .18em; font-size: .85rem; margin: 0 0 8px; }
+#setup h1 { font-size: 3.2rem; }
+#setup h1::after { content: "_"; color: var(--accent); animation: caret 1s steps(2, start) infinite; margin-left: .05em; }
+@keyframes caret { to { visibility: hidden; } }
 #setup, #done { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 24px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 30px 80px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.12); }
 fieldset { margin: 24px 0; padding: 12px 24px 16px; }
 fieldset legend { font-weight: 600; padding: 0 8px; color: rgba(255,255,255,.8); }
@@ -65,7 +94,7 @@ fieldset input[type="checkbox"] { width: 1.3em; height: 1.3em; vertical-align: -
 input, button { font: inherit; }
 input[type="time"], input[type="text"] {
   width: 100%; padding: 16px 20px; border: 1px solid var(--glass-line); border-radius: 14px; font-size: 2rem;
-  background: rgba(255,255,255,.1); color: #fff; letter-spacing: .02em;
+  background: rgba(40,44,90,.75); color: #fff; letter-spacing: .02em;
 }
 input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .7; }
 input::placeholder { color: rgba(255,255,255,.4); }
