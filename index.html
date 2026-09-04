@@ -54,6 +54,7 @@
 
   <section>
     <h2>アラーム設定</h2>
+    <p id="currentTime" class="muted"></p>
     <div class="row">
       <input id="alarmTime" type="time">
       <select id="level">
@@ -62,6 +63,12 @@
         <option value="3" selected>レベル3（定積分）</option>
         <option value="4">レベル4（極限：0/0）</option>
         <option value="5">レベル5（極限：∞）</option>
+      </select>
+      <select id="sound">
+        <option value="beep" selected>ビープ</option>
+        <option value="siren">サイレン</option>
+        <option value="bell">ベル</option>
+        <option value="digital">デジタル</option>
       </select>
       <button id="setAlarm">セットする</button>
     </div>
@@ -114,8 +121,10 @@ function saveData(data) {
 //   ① 時刻を設定する → ② その時刻になると鳴る → ③ 問題を解いて止める
 // ============================================================
 
+const currentTimeEl  = document.getElementById('currentTime');
 const alarmTimeInput = document.getElementById('alarmTime');
 const levelSelect    = document.getElementById('level');
+const soundSelect    = document.getElementById('sound');
 const setAlarmBtn    = document.getElementById('setAlarm');
 const clearAlarmBtn  = document.getElementById('clearAlarm');
 const alarmStatus    = document.getElementById('alarmStatus');
@@ -142,6 +151,7 @@ function renderStatus() {
     clearAlarmBtn.hidden = true;
   }
   if (data.level) levelSelect.value = data.level;
+  if (data.sound) soundSelect.value = data.sound;
 }
 
 setAlarmBtn.addEventListener('click', () => {
@@ -157,6 +167,7 @@ setAlarmBtn.addEventListener('click', () => {
   const data = loadData();
   data.alarmTime = alarmTimeInput.value;
   data.level = Number(levelSelect.value);
+  data.sound = soundSelect.value;
   saveData(data);
   renderStatus();
 });
@@ -173,6 +184,14 @@ function currentHHMM() {
   return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 }
 
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  currentTimeEl.textContent = `現在時刻: ${hh}:${mm}:${ss}`;
+}
+
 function checkAlarm() {
   if (ringing) return;
   const data = loadData();
@@ -180,19 +199,84 @@ function checkAlarm() {
     startRinging();
   }
 }
-setInterval(checkAlarm, 1000);
 
-function beep() {
+updateClock();
+setInterval(() => { updateClock(); checkAlarm(); }, 1000);
+
+// ============================================================
+// アラーム音のバリエーション。すべて Web Audio API のオシレーターで
+// その場で合成する（外部の音声ファイルやCDNは使わない）
+// ============================================================
+
+function playBeep() {
   if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
+  osc.type = 'sine';
   osc.frequency.value = 880;
   osc.connect(gain);
   gain.connect(audioCtx.destination);
-  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.3);
+  gain.gain.setValueAtTime(0.2, t0);
+  osc.start(t0);
+  osc.stop(t0 + 0.3);
 }
+
+function playSiren() {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(400, t0);
+  osc.frequency.linearRampToValueAtTime(1200, t0 + 0.4);
+  osc.frequency.linearRampToValueAtTime(400, t0 + 0.8);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  gain.gain.setValueAtTime(0.15, t0);
+  osc.start(t0);
+  osc.stop(t0 + 0.8);
+}
+
+function playBell() {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  [1046.5, 1568].forEach((freq) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    gain.gain.setValueAtTime(0.15, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.6);
+    osc.start(t0);
+    osc.stop(t0 + 0.6);
+  });
+}
+
+function playDigital() {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  [0, 0.15].forEach((offset) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 1000;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    gain.gain.setValueAtTime(0.12, t0 + offset);
+    osc.start(t0 + offset);
+    osc.stop(t0 + offset + 0.1);
+  });
+}
+
+const SOUNDS = {
+  beep:    { interval: 700,  play: playBeep },
+  siren:   { interval: 900,  play: playSiren },
+  bell:    { interval: 1000, play: playBell },
+  digital: { interval: 500,  play: playDigital },
+};
 
 // ============================================================
 // 理系学生向けの微積分クイズを、外部通信なしのローカル処理で生成する。
@@ -296,8 +380,9 @@ function startRinging() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  beep();
-  beepTimer = setInterval(beep, 700);
+  const sound = SOUNDS[loadData().sound] || SOUNDS.beep;
+  sound.play();
+  beepTimer = setInterval(sound.play, sound.interval);
   answerInput.focus();
   // タブが背面/非アクティブでも気づけるように、OS通知でも知らせる
   // （タブ自体を閉じている場合はこの通知も出せない）
