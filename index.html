@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>プロダクト名</title>
+<title>解けるまで止まらないアラーム</title>
 <style>
   /* ============================================================
      見た目。動線が通ってから、時間が余ったら手を入れる
      ============================================================ */
-  :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; }
+  :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; --danger: #c53030; }
   * { box-sizing: border-box; }
   body {
     font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
@@ -20,41 +20,70 @@
   .lead { color: #666; margin: 0 0 24px; }
   section { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
   h2 { font-size: 1rem; margin: 0 0 12px; }
-  input, textarea, button { font: inherit; }
-  input, textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
-  button { padding: 8px 16px; border: 0; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; }
+  input, textarea, button { font: inherit; font-size: 16px; } /* 16px未満だとiOSで入力時に自動ズームする */
+  input, textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 4px; }
+  button { padding: 10px 16px; min-height: 44px; border: 0; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; touch-action: manipulation; }
   button:hover { opacity: .85; }
-  .row { display: flex; gap: 8px; align-items: center; }
+  button:disabled { background: #aab4bf; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > input { flex: 1 1 140px; }
+  .row > button { flex: 1 1 100px; }
   .muted { color: #666; font-size: .9rem; }
+  .clock { font-size: 2rem; font-variant-numeric: tabular-nums; margin: 0 0 8px; }
+  #ringingSection { display: none; border-color: var(--danger); background: #fff5f5; }
+  #ringingSection.active { display: block; }
+  .question { font-size: 1.2rem; margin: 0 0 12px; }
+  .result { margin-top: 8px; font-weight: bold; }
+  .result.ok { color: #2f855a; }
+  .result.ng { color: var(--danger); }
+
+  /* ============================================================
+     スマホ（狭い画面）向け。ボタン・入力欄を縦に積んでタップしやすくする
+     ============================================================ */
+  @media (max-width: 480px) {
+    body { padding: 16px; }
+    .row { flex-direction: column; align-items: stretch; }
+    .row > input, .row > button { flex: 1 1 auto; width: 100%; }
+    .clock { font-size: 2.4rem; text-align: center; }
+  }
 </style>
 </head>
 <body>
 <main>
 
-  <h1>プロダクト名</h1>
-  <p class="lead">一言で何か（誰の、何を解決するか）</p>
+  <h1>解けるまで止まらないアラーム</h1>
+  <p class="lead">理系大学生が、程よい難易度の理系問題を解かないと止められないアラーム</p>
 
   <!-- ============================================================
        ここから下が本体。セクションを足したり消したりして作る
        ============================================================ -->
 
   <section>
-    <h2>入力</h2>
+    <h2>アラームをセットする</h2>
+    <div class="clock" id="clock">--:--:--</div>
     <div class="row">
-      <input id="input" type="text" placeholder="ここに入力">
-      <button id="save">保存</button>
+      <input id="alarmTimeInput" type="time">
+      <button id="setAlarm">セット</button>
+      <button id="cancelAlarm">解除</button>
     </div>
+    <p class="muted" id="alarmStatus">アラームは未設定です</p>
   </section>
 
-  <section>
-    <h2>結果</h2>
-    <div id="output" class="muted">まだ何もありません</div>
+  <section id="ringingSection">
+    <h2>問題を解いて止める</h2>
+    <p class="question" id="questionText"></p>
+    <div class="row">
+      <input id="answerInput" type="number" placeholder="答えを入力">
+      <button id="submitAnswer">答える</button>
+    </div>
+    <p class="result" id="resultText"></p>
   </section>
 
   <!-- ============================================================
-       AI に任せない部分は、ここに置くことが多いです。
-       AI が候補を出して、最後に人が選ぶ／決める場所を1つ残してください。
-       （例）候補を3つ並べて、人がボタンで選ぶ
+       AI に任せない部分。
+       問題の採点はアプリが自動で行うが、解答そのものは必ず人間が
+       頭を使って解いて入力する。AI が代わりに解いたり、
+       スキップ／自動停止したりする機能は作らない。
        ============================================================ -->
 
 </main>
@@ -80,29 +109,246 @@ function saveData(data) {
 }
 
 // ============================================================
-// ここから下が処理。動線を1本だけ通す
-//   ① 人が入力すること → ② 画面で起きること → ③ 人が目にする結果
-// この3つが繋がったら、9/4 は合格です。枝分かれは作らないでください。
+// 問題を作る（理系大学生向け、程よい難易度）
+// 呼ぶたびにランダムな数値で問題を作り直す
 // ============================================================
 
-const input  = document.getElementById('input');
-const output = document.getElementById('output');
-
-function render() {
-  const data = loadData();
-  output.textContent = data.text ? data.text : 'まだ何もありません';
-  output.className = data.text ? '' : 'muted';
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-document.getElementById('save').addEventListener('click', () => {
-  const data = loadData();
-  data.text = input.value;
-  saveData(data);
-  input.value = '';
-  render();
+const problemGenerators = [
+  () => { // 二次方程式
+    const p = randInt(-6, 6);
+    let q = randInt(-6, 6);
+    while (q === p) q = randInt(-6, 6);
+    const b = -(p + q);
+    const c = p * q;
+    const bStr = b >= 0 ? `+ ${b}` : `- ${Math.abs(b)}`;
+    const cStr = c >= 0 ? `+ ${c}` : `- ${Math.abs(c)}`;
+    return { text: `x² ${bStr}x ${cStr} = 0 の解のうち、大きい方の値は？`, answer: Math.max(p, q) };
+  },
+  () => { // 微分
+    const a = randInt(1, 5);
+    const b = randInt(-5, 5);
+    const bStr = b >= 0 ? `+ ${b}x` : `- ${Math.abs(b)}x`;
+    return { text: `f(x) = ${a}x³ ${bStr} のとき、f'(1) の値は？`, answer: 3 * a + b };
+  },
+  () => { // 積分
+    const a = randInt(1, 5) * 2; // 偶数にして答えを整数にする
+    const c = randInt(1, 4);
+    return { text: `∫ (区間 0〜${c}) ${a}x dx の値は？`, answer: a * c * c / 2 };
+  },
+  () => { // 物理（等加速度運動）
+    const acc = randInt(2, 6);
+    const t = randInt(2, 6);
+    return { text: `静止状態から加速度 ${acc} m/s² で ${t} 秒間加速したときの速さ [m/s] は？`, answer: acc * t };
+  },
+  () => { // 対数
+    const base = randInt(2, 5);
+    const n = randInt(2, 5);
+    return { text: `log_${base}(${Math.pow(base, n)}) の値は？`, answer: n };
+  },
+  () => { // 組み合わせ
+    const n = randInt(4, 10);
+    return { text: `${n}人から2人を選ぶ組み合わせの数（${n}C2）は？`, answer: n * (n - 1) / 2 };
+  },
+];
+
+function makeProblem() {
+  const gen = problemGenerators[randInt(0, problemGenerators.length - 1)];
+  return gen();
+}
+
+// ============================================================
+// アラーム音（外部ファイル・CDNを使わず Web Audio API で鳴らす）
+// ============================================================
+
+let audioCtx = null;
+let beepTimer = null;
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function beepOnce() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 880;
+  gain.gain.value = 0.15;
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function startBeeping() {
+  if (beepTimer) return;
+  beepOnce();
+  beepTimer = setInterval(beepOnce, 600);
+}
+
+function stopBeeping() {
+  clearInterval(beepTimer);
+  beepTimer = null;
+}
+// ============================================================
+// 画面スリープ防止（Screen Wake Lock API）
+// アラームをセットしている間、スマホの自動画面ロックで
+// タイマーが止まってしまわないようにする
+// ============================================================
+
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch {
+    wakeLock = null; // 対応していない/取得できない環境では何もしない
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
+
+// タブを切り替えて戻ってきたとき、Wake Lock は自動で解除されているため
+// アラームがまだセットされていれば取り直す
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && loadData().alarmTime) {
+    requestWakeLock();
+  }
 });
 
-render();
+// ============================================================
+// ここから下が処理。動線を1本だけ通す
+//   ① 人がアラーム時刻を入力する
+//   ② 時刻になったら音が鳴り、問題が出る
+//   ③ 人が問題を解いて正解すると、音が止まる
+// この3つが繋がったら合格。枝分かれ（複数アラームや設定画面）は作らない
+// ============================================================
+
+const clockEl = document.getElementById('clock');
+const alarmTimeInput = document.getElementById('alarmTimeInput');
+const alarmStatus = document.getElementById('alarmStatus');
+const setAlarmBtn = document.getElementById('setAlarm');
+const cancelAlarmBtn = document.getElementById('cancelAlarm');
+const ringingSection = document.getElementById('ringingSection');
+const questionText = document.getElementById('questionText');
+const answerInput = document.getElementById('answerInput');
+const submitAnswerBtn = document.getElementById('submitAnswer');
+const resultText = document.getElementById('resultText');
+
+let isRinging = false;
+let currentProblem = null;
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+function renderStatus() {
+  const data = loadData();
+  if (data.alarmTime) {
+    alarmStatus.textContent = `セット中のアラーム: ${data.alarmTime}`;
+  } else {
+    alarmStatus.textContent = 'アラームは未設定です';
+  }
+}
+
+function nextQuestion() {
+  currentProblem = makeProblem();
+  questionText.textContent = currentProblem.text;
+  answerInput.value = '';
+  resultText.textContent = '';
+  resultText.className = 'result';
+  answerInput.focus();
+}
+
+function startRinging() {
+  isRinging = true;
+  ensureAudioContext();
+  startBeeping();
+  ringingSection.classList.add('active');
+  setAlarmBtn.disabled = true;
+  cancelAlarmBtn.disabled = true;
+  nextQuestion();
+}
+
+function stopRinging() {
+  isRinging = false;
+  stopBeeping();
+  releaseWakeLock();
+  ringingSection.classList.remove('active');
+  setAlarmBtn.disabled = false;
+  cancelAlarmBtn.disabled = false;
+  const data = loadData();
+  data.alarmTime = null; // 鳴り終わったアラームは消す（一回きり）
+  saveData(data);
+  renderStatus();
+}
+
+function tick() {
+  const now = new Date();
+  clockEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  if (isRinging) return;
+  const data = loadData();
+  if (!data.alarmTime) return;
+  const current = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  if (current === data.alarmTime) {
+    startRinging();
+  }
+}
+
+setAlarmBtn.addEventListener('click', () => {
+  if (!alarmTimeInput.value) return;
+  ensureAudioContext(); // ユーザー操作のタイミングで解放しておく（自動再生ブロック対策）
+  requestWakeLock(); // 同じくユーザー操作のタイミングで画面スリープを防ぐ
+  const data = loadData();
+  data.alarmTime = alarmTimeInput.value;
+  saveData(data);
+  renderStatus();
+});
+
+cancelAlarmBtn.addEventListener('click', () => {
+  releaseWakeLock();
+  const data = loadData();
+  data.alarmTime = null;
+  saveData(data);
+  renderStatus();
+});
+
+submitAnswerBtn.addEventListener('click', () => {
+  if (!currentProblem) return;
+  const value = Number(answerInput.value);
+  if (answerInput.value !== '' && value === currentProblem.answer) {
+    resultText.textContent = '正解！アラームを止めました';
+    resultText.className = 'result ok';
+    setTimeout(stopRinging, 600);
+  } else {
+    resultText.textContent = '不正解。もう一問';
+    resultText.className = 'result ng';
+    nextQuestion();
+  }
+});
+
+answerInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAnswerBtn.click();
+});
+
+renderStatus();
+setInterval(tick, 1000);
+tick();
 </script>
 </body>
 </html>
