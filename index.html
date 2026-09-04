@@ -38,17 +38,26 @@
        ここから下が本体。セクションを足したり消したりして作る
        ============================================================ -->
 
-  <section>
-    <h2>入力</h2>
-    <div class="row">
-      <input id="input" type="text" placeholder="ここに入力">
-      <button id="save">保存</button>
-    </div>
+  <section id="setup-section">
+    <h2>起床時刻</h2>
+    <form id="setup-form" class="row">
+      <input id="alarm-time" type="time" required>
+      <button type="submit">セット</button>
+    </form>
+    <p id="alarm-status" class="muted">未設定</p>
   </section>
 
-  <section>
-    <h2>結果</h2>
-    <div id="output" class="muted">まだ何もありません</div>
+  <section id="ringing-section" hidden>
+    <h2>起きるための問題</h2>
+    <p class="muted">上の方程式を満たす x を3つ答えてください（次数が4や5でも、3つ合えば正解です）</p>
+    <p id="equation" style="font-size:1.4rem; font-weight:700;"></p>
+    <form id="answer-form" class="row">
+      <input id="ans1" type="number" required>
+      <input id="ans2" type="number" required>
+      <input id="ans3" type="number" required>
+      <button type="submit">回答</button>
+    </form>
+    <p id="answer-feedback" class="muted"></p>
   </section>
 
   <!-- ============================================================
@@ -80,29 +89,214 @@ function saveData(data) {
 }
 
 // ============================================================
-// ここから下が処理。動線を1本だけ通す
-//   ① 人が入力すること → ② 画面で起きること → ③ 人が目にする結果
-// この3つが繋がったら、9/4 は合格です。枝分かれは作らないでください。
+// 出題分野: n次方程式の整数解（今回は固定。将来分野を増やす場合はここを差し替える）
 // ============================================================
 
-const input  = document.getElementById('input');
-const output = document.getElementById('output');
-
-function render() {
-  const data = loadData();
-  output.textContent = data.text ? data.text : 'まだ何もありません';
-  output.className = data.text ? '' : 'muted';
+function randomInt(min, max) { // 両端含む
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-document.getElementById('save').addEventListener('click', () => {
+function randomNonZeroRoot() {
+  const abs = randomInt(1, 6); // 暗算で解ける範囲
+  return Math.random() < 0.5 ? -abs : abs;
+}
+
+function expandFromRoots(roots) { // (x-r1)(x-r2)... を昇冪係数配列に展開
+  let coeffs = [1];
+  for (const r of roots) {
+    const next = new Array(coeffs.length + 1).fill(0);
+    for (let i = 0; i < coeffs.length; i++) {
+      next[i + 1] += coeffs[i];
+      next[i]     += -r * coeffs[i];
+    }
+    coeffs = next;
+  }
+  return coeffs;
+}
+
+function formatPolynomial(coeffs) { // 昇冪配列 → "x^3 - 2x^2 - 5x + 6 = 0"
+  const deg = coeffs.length - 1;
+  const parts = [];
+  for (let d = deg; d >= 0; d--) {
+    const c = coeffs[d];
+    if (c === 0) continue;
+    const abs = Math.abs(c);
+    const term = d === 0 ? `${abs}`
+               : d === 1 ? (abs === 1 ? 'x' : `${abs}x`)
+               : (abs === 1 ? `x^${d}` : `${abs}x^${d}`);
+    parts.push({ neg: c < 0, term });
+  }
+  return parts
+    .map((p, i) => i === 0 ? (p.neg ? `-${p.term}` : p.term) : `${p.neg ? '-' : '+'} ${p.term}`)
+    .join(' ') + ' = 0';
+}
+
+function generateProblem() {
+  const n = randomInt(3, 5);
+  const roots = Array.from({ length: n }, randomNonZeroRoot);
+  const coeffs = expandFromRoots(roots);
+  return { roots, equation: formatPolynomial(coeffs) };
+}
+
+function checkAnswer(roots, guesses) { // 多重集合の消費判定
+  const pool = [...roots];
+  for (const g of guesses) {
+    const idx = pool.indexOf(g);
+    if (idx === -1) return false;
+    pool.splice(idx, 1);
+  }
+  return true;
+}
+
+// ============================================================
+// アラーム音（Web Audio API でビープ音を生成。外部音声ファイルは使わない）
+// ============================================================
+
+let audioCtx = null;
+let oscillator = null;
+let gainNode = null;
+let beepTimerId = null;
+
+function primeAudio() { // セット押下（ユーザー操作）時点で起動し、後の自動再生を許可させる
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function startBeeping() {
+  primeAudio();
+  oscillator = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+  oscillator.type = 'square';
+  oscillator.frequency.value = 880;
+  gainNode.gain.value = 0;
+  oscillator.connect(gainNode).connect(audioCtx.destination);
+  oscillator.start();
+
+  let on = false;
+  beepTimerId = setInterval(() => {
+    on = !on;
+    gainNode.gain.setTargetAtTime(on ? 0.3 : 0, audioCtx.currentTime, 0.01);
+  }, 400);
+}
+
+function stopBeeping() {
+  if (beepTimerId) { clearInterval(beepTimerId); beepTimerId = null; }
+  if (oscillator) { oscillator.stop(); oscillator.disconnect(); oscillator = null; }
+  if (gainNode) { gainNode.disconnect(); gainNode = null; }
+}
+
+// ============================================================
+// ここから下が処理。動線を1本だけ通す
+//   ① 起床時刻をセットすること → ② 時刻になったら問題が出ること → ③ 正解するまで鳴り続けること
+// この3つが繋がったら合格です。枝分かれは作らないでください。
+// ============================================================
+
+function todayStr(d = new Date()) { // ローカル日付で組み立てる（toISOStringはUTC基準でずれる）
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const setupForm      = document.getElementById('setup-form');
+const timeInput      = document.getElementById('alarm-time');
+const alarmStatus    = document.getElementById('alarm-status');
+const ringingSection = document.getElementById('ringing-section');
+const equationEl     = document.getElementById('equation');
+const answerForm     = document.getElementById('answer-form');
+const ansInputs      = ['ans1', 'ans2', 'ans3'].map(id => document.getElementById(id));
+const feedbackEl     = document.getElementById('answer-feedback');
+let currentProblem = null;
+
+function renderSetup() {
+  const alarm = loadData().alarm;
+  alarmStatus.textContent = alarm?.time ? `${alarm.time} にセット済み` : '未設定';
+  if (alarm?.time) timeInput.value = alarm.time;
+}
+
+setupForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  primeAudio();
   const data = loadData();
-  data.text = input.value;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [sh, sm] = timeInput.value.split(':').map(Number);
+  const setMinutes = sh * 60 + sm;
+  // セット時刻が今日すでに過ぎているなら「今日はもう鳴らない（明日鳴る）」扱いにする。
+  // これがないと、夜に翌朝の時刻をセットした瞬間に即鳴動してしまう。
+  data.alarm = { time: timeInput.value, lastSolvedDate: nowMinutes >= setMinutes ? todayStr() : null };
   saveData(data);
-  input.value = '';
-  render();
+  renderSetup();
 });
 
-render();
+// ページの再読み込みでAudioContextのロックが外れることがあるため、
+// 鳴動前に一度でも画面を操作していれば音が出るようにしておく。
+document.addEventListener('pointerdown', primeAudio, { once: true });
+document.addEventListener('keydown', primeAudio, { once: true });
+
+function nextProblem() {
+  currentProblem = generateProblem();
+  equationEl.textContent = currentProblem.equation;
+  feedbackEl.textContent = '';
+  ansInputs.forEach(inp => inp.value = '');
+  ansInputs[0].focus();
+}
+
+function fireAlarm() {
+  ringingSection.hidden = false;
+  nextProblem();
+  startBeeping();
+}
+
+answerForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const guesses = ansInputs.map(inp => Number(inp.value));
+  if (checkAnswer(currentProblem.roots, guesses)) {
+    stopBeeping();
+    const data = loadData();
+    data.alarm.lastSolvedDate = todayStr();
+    saveData(data);
+    ringingSection.hidden = true;
+    renderSetup();
+  } else {
+    feedbackEl.textContent = '不正解。次の問題です。';
+    nextProblem();
+  }
+});
+
+function checkAlarm() {
+  const data = loadData();
+  const alarm = data.alarm;
+  if (!alarm || !alarm.time) return;
+  if (!ringingSection.hidden) return; // 鳴動中は何もしない
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [ah, am] = alarm.time.split(':').map(Number);
+  const alarmMinutes = ah * 60 + am;
+
+  if (nowMinutes >= alarmMinutes && alarm.lastSolvedDate !== todayStr()) {
+    fireAlarm();
+  }
+}
+
+setInterval(checkAlarm, 1000);
+renderSetup();
+
+// ------------------------------------------------------------
+// 自己チェック（コンソールに何も出なければOK）
+// ------------------------------------------------------------
+(function selfTest() {
+  console.assert(
+    formatPolynomial(expandFromRoots([1, 2])) === 'x^2 - 3x + 2 = 0',
+    'expandFromRoots/formatPolynomial が壊れています'
+  );
+  console.assert(
+    checkAnswer([2, 2, 3, -1, -1], [2, 2, 3]) === true,
+    'checkAnswer: 正しいmultisetが不正解判定になっています'
+  );
+  console.assert(
+    checkAnswer([2, 2, 3, -1, -1], [2, 2, 2]) === false,
+    'checkAnswer: 重複しすぎた回答が正解判定になっています'
+  );
+})();
 </script>
 </body>
 </html>
