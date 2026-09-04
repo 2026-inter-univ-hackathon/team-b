@@ -3,106 +3,82 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>プロダクト名</title>
-<style>
-  /* ============================================================
-     見た目。動線が通ってから、時間が余ったら手を入れる
-     ============================================================ */
-  :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
-    color: var(--fg); background: var(--bg);
-    margin: 0; padding: 24px; line-height: 1.6;
-  }
-  main { max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; }
-  .lead { color: #666; margin: 0 0 24px; }
-  section { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-  h2 { font-size: 1rem; margin: 0 0 12px; }
-  input, textarea, button { font: inherit; }
-  input, textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
-  button { padding: 8px 16px; border: 0; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; }
-  button:hover { opacity: .85; }
-  .row { display: flex; gap: 8px; align-items: center; }
-  .muted { color: #666; font-size: .9rem; }
-</style>
+<title>リケイアラーム</title>
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-state="setup">
 <main>
 
-  <h1>プロダクト名</h1>
-  <p class="lead">一言で何か（誰の、何を解決するか）</p>
+  <!-- 待機: 時刻設定 -->
+  <section id="setup">
+    <h1>リケイアラーム</h1>
+    <p class="lead">理系の問題を解かないと止まらない目覚まし</p>
 
-  <!-- ============================================================
-       ここから下が本体。セクションを足したり消したりして作る
-       ============================================================ -->
+    <label for="alarm-time">鳴らす時刻</label>
+    <input id="alarm-time" type="time" value="07:30">
 
-  <section>
-    <h2>入力</h2>
+    <fieldset id="genres">
+      <legend>出題ジャンル</legend>
+      <label><input type="checkbox" name="genre" value="math" checked> 数学</label>
+      <label><input type="checkbox" name="genre" value="physics"> 物理</label>
+      <label><input type="checkbox" name="genre" value="code" checked> プログラミング</label>
+    </fieldset>
+
     <div class="row">
-      <input id="input" type="text" placeholder="ここに入力">
-      <button id="save">保存</button>
+      <button id="btn-set" class="primary">セット</button>
+      <button id="btn-demo">10秒後に鳴らす</button>
     </div>
+
+    <details class="check">
+      <summary>動作確認（開発用）</summary>
+      <div class="row">
+        <button id="btn-check-beep">ビープを1秒鳴らす</button>
+        <button id="btn-check-storage">localStorage を確認</button>
+      </div>
+      <p id="check-result" class="muted">未確認</p>
+    </details>
   </section>
 
-  <section>
-    <h2>結果</h2>
-    <div id="output" class="muted">まだ何もありません</div>
+  <!-- 監視中: カウントダウン -->
+  <section id="armed">
+    <div id="now" class="clock">--:--:--</div>
+    <p id="countdown" class="lead">-- まであと --</p>
+    <p class="muted">タブを前面にしたまま寝てください。バックグラウンドだと数十秒遅れることがあります。</p>
+    <p id="missed" class="note" hidden>
+      <span id="missed-text"></span>
+      <button id="btn-ring-now" type="button">今すぐ鳴らす</button>
+      <button id="btn-ring-tomorrow" type="button">明日にする</button>
+    </p>
+    <p id="armed-note" class="note" hidden>
+      リロード後は音の許可が切れています。<button id="btn-enable-sound" type="button">音を有効にする</button> を押してください。
+    </p>
+    <button id="btn-disarm">解除</button>
   </section>
 
-  <!-- ============================================================
-       AI に任せない部分は、ここに置くことが多いです。
-       AI が候補を出して、最後に人が選ぶ／決める場所を1つ残してください。
-       （例）候補を3つ並べて、人がボタンで選ぶ
-       ============================================================ -->
+  <!-- 鳴動: 問題 -->
+  <section id="ringing">
+    <p class="eyebrow">起きろ。正解するまで止まらない</p>
+    <div id="question" class="question">問題を読み込み中…</div>
+    <form id="answer-form" autocomplete="off">
+      <input id="answer" type="text" inputmode="numeric" placeholder="数値で答える" required>
+      <button type="submit" class="primary">答える</button>
+    </form>
+    <p id="attempts" class="muted">1問目</p>
+  </section>
+
+  <!-- 停止: ログ -->
+  <section id="done">
+    <h1>起床成功</h1>
+    <p id="result" class="lead"></p>
+    <p id="weekly" class="muted"></p>
+    <ul id="log" class="log"></ul>
+    <button id="btn-again" class="primary">明日もセット</button>
+  </section>
 
 </main>
 
-<script>
-// ============================================================
-// データの保存と読み込み（localStorage）
-// この2つの関数だけ使えば、リロードしても消えません
-// ============================================================
-
-const STORAGE_KEY = 'app-data';
-
-function loadData() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
-  } catch {
-    return {};   // 壊れた値が入っていても落ちないようにする
-  }
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-// ============================================================
-// ここから下が処理。動線を1本だけ通す
-//   ① 人が入力すること → ② 画面で起きること → ③ 人が目にする結果
-// この3つが繋がったら、9/4 は合格です。枝分かれは作らないでください。
-// ============================================================
-
-const input  = document.getElementById('input');
-const output = document.getElementById('output');
-
-function render() {
-  const data = loadData();
-  output.textContent = data.text ? data.text : 'まだ何もありません';
-  output.className = data.text ? '' : 'muted';
-}
-
-document.getElementById('save').addEventListener('click', () => {
-  const data = loadData();
-  data.text = input.value;
-  saveData(data);
-  input.value = '';
-  render();
-});
-
-render();
-</script>
+<!-- type="module" は file:// で CORS エラーになりうるので通常の script を順に読む -->
+<script src="problems.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
