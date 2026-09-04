@@ -3,12 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>プロダクト名</title>
+<title>積分アラーム</title>
 <style>
   /* ============================================================
      見た目。動線が通ってから、時間が余ったら手を入れる
      ============================================================ */
-  :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; }
+  :root {
+    --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0;
+    --ok: #2f855a; --ng: #c53030;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
@@ -24,38 +27,88 @@
   input, textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
   button { padding: 8px 16px; border: 0; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; }
   button:hover { opacity: .85; }
+  button.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
   .row { display: flex; gap: 8px; align-items: center; }
   .muted { color: #666; font-size: .9rem; }
+  .clock { font-variant-numeric: tabular-nums; font-size: 2rem; text-align: center; margin: 4px 0 12px; }
+
+  #ringing-section {
+    border-color: var(--ng);
+    background: #fff5f5;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(197,48,48,.25); }
+    50% { box-shadow: 0 0 0 8px rgba(197,48,48,0); }
+  }
+  .ringing-title { color: var(--ng); font-weight: bold; font-size: 1.2rem; margin: 0 0 8px; }
+
+  .candidates { display: grid; gap: 8px; }
+  .candidate-btn {
+    background: #fff; color: var(--fg); border: 1px solid var(--line);
+    text-align: left; padding: 12px; border-radius: 6px; cursor: pointer;
+  }
+  .candidate-btn:hover { border-color: var(--accent); }
+  .candidate-btn strong { color: var(--accent); }
+
+  .problem-display { font-size: 1.2rem; margin-bottom: 12px; }
+  #answer-feedback { margin-top: 8px; font-weight: bold; }
+  #answer-feedback.ok { color: var(--ok); }
+  #answer-feedback.ng { color: var(--ng); }
 </style>
 </head>
 <body>
 <main>
 
-  <h1>プロダクト名</h1>
-  <p class="lead">一言で何か（誰の、何を解決するか）</p>
+  <h1>積分アラーム</h1>
+  <p class="lead">アラームを止めても二度寝してしまう理系大学生が、積分の計算問題を解かないと止められない目覚ましで、朝ちゃんと起きられるようにする</p>
 
   <!-- ============================================================
        ここから下が本体。セクションを足したり消したりして作る
        ============================================================ -->
 
   <section>
-    <h2>入力</h2>
-    <div class="row">
-      <input id="input" type="text" placeholder="ここに入力">
-      <button id="save">保存</button>
-    </div>
+    <h2>今の時刻</h2>
+    <div id="clock" class="clock">--:--:--</div>
   </section>
 
   <section>
-    <h2>結果</h2>
-    <div id="output" class="muted">まだ何もありません</div>
+    <h2>アラームを設定する</h2>
+    <div class="row">
+      <input id="time-input" type="time">
+      <button id="arm">セットする</button>
+      <button id="disarm" class="secondary">解除</button>
+    </div>
+    <p id="current-alarm" class="muted">未設定</p>
+    <p class="muted">
+      <button id="test-ring" class="secondary">テスト用に今すぐ鳴らす</button>
+    </p>
   </section>
 
   <!-- ============================================================
-       AI に任せない部分は、ここに置くことが多いです。
-       AI が候補を出して、最後に人が選ぶ／決める場所を1つ残してください。
-       （例）候補を3つ並べて、人がボタンで選ぶ
+       AI に任せない部分：AI（このアプリ）は難易度違いの問題を3つ
+       「候補」として出すだけ。どれを解くかは必ず人が選ぶ。
+       正解したかどうかも、最後は自分の手で入力して確かめる。
        ============================================================ -->
+
+  <section id="ringing-section" hidden>
+    <p class="ringing-title">⏰ 起きる時間です！問題を選んで解いてください</p>
+
+    <div id="candidates-section">
+      <h2>問題を選ぶ（3つの候補から1つ）</h2>
+      <div id="candidates" class="candidates"></div>
+    </div>
+
+    <div id="solve-section" hidden>
+      <h2>解く</h2>
+      <div id="problem-display" class="problem-display"></div>
+      <div class="row">
+        <input id="answer-input" type="number" step="any" placeholder="答えを入力">
+        <button id="answer-check">解答する</button>
+      </div>
+      <p id="answer-feedback"></p>
+    </div>
+  </section>
 
 </main>
 
@@ -65,7 +118,7 @@
 // この2つの関数だけ使えば、リロードしても消えません
 // ============================================================
 
-const STORAGE_KEY = 'app-data';
+const STORAGE_KEY = 'calc-alarm-data';
 
 function loadData() {
   try {
@@ -80,27 +133,215 @@ function saveData(data) {
 }
 
 // ============================================================
-// ここから下が処理。動線を1本だけ通す
-//   ① 人が入力すること → ② 画面で起きること → ③ 人が目にする結果
-// この3つが繋がったら、9/4 は合格です。枝分かれは作らないでください。
+// 積分の問題を作る（AI が「候補」を出す部分）
+// 難易度違いを3つ作るだけ。答えを決めるのはこの関数。
 // ============================================================
 
-const input  = document.getElementById('input');
-const output = document.getElementById('output');
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function genTerm(maxExp) {
+  return { coeff: randInt(1, 5), exp: randInt(0, maxExp) };
+}
+
+function formatTermHtml(t) {
+  if (t.exp === 0) return `${t.coeff}`;
+  if (t.exp === 1) return `${t.coeff}x`;
+  return `${t.coeff}x<sup>${t.exp}</sup>`;
+}
+
+function genProblem(label, numTerms, maxExp, rangeMax) {
+  const terms = Array.from({ length: numTerms }, () => genTerm(maxExp));
+  const a = randInt(0, 2);
+  const b = randInt(a + 1, a + rangeMax);
+  function F(x) {
+    return terms.reduce((sum, t) => sum + (t.coeff / (t.exp + 1)) * Math.pow(x, t.exp + 1), 0);
+  }
+  const answer = F(b) - F(a);
+  const exprHtml = terms.map(formatTermHtml).join(' + ');
+  return { label, exprHtml, a, b, answer };
+}
+
+const DIFFICULTIES = [
+  { label: '簡単', numTerms: 1, maxExp: 2, rangeMax: 2 },
+  { label: '普通', numTerms: 2, maxExp: 2, rangeMax: 3 },
+  { label: '難しい', numTerms: 3, maxExp: 3, rangeMax: 3 },
+];
+
+function genCandidates() {
+  return DIFFICULTIES.map(d => genProblem(d.label, d.numTerms, d.maxExp, d.rangeMax));
+}
+
+// ============================================================
+// アラーム音（外部ファイルを使わず Web Audio API で鳴らす）
+// ============================================================
+
+let audioCtx = null;
+let osc = null;
+let gainNode = null;
+let beepTimer = null;
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function startAlarmSound() {
+  ensureAudioContext();
+  osc = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+  osc.type = 'square';
+  gainNode.gain.value = 0.15;
+  osc.connect(gainNode).connect(audioCtx.destination);
+  osc.start();
+  let on = true;
+  beepTimer = setInterval(() => {
+    on = !on;
+    gainNode.gain.value = on ? 0.15 : 0;
+    osc.frequency.value = on ? 880 : 660;
+  }, 400);
+}
+
+function stopAlarmSound() {
+  if (beepTimer) { clearInterval(beepTimer); beepTimer = null; }
+  if (osc) { try { osc.stop(); } catch (e) {} osc.disconnect(); osc = null; }
+  if (gainNode) { gainNode.disconnect(); gainNode = null; }
+}
+
+// ============================================================
+// ここから下が処理。動線を1本だけ通す
+//   ① 人がアラーム時刻をセットする
+//   ② その時刻になると鳴り、AI が問題を3つ候補として出す
+//   ③ 人が1つ選んで解き、正解したら止まる
+// 枝分かれ（ログイン・管理画面・設定画面）は作らない
+// ============================================================
+
+const timeInput = document.getElementById('time-input');
+const currentAlarmEl = document.getElementById('current-alarm');
+const ringingSection = document.getElementById('ringing-section');
+const candidatesSection = document.getElementById('candidates-section');
+const candidatesEl = document.getElementById('candidates');
+const solveSection = document.getElementById('solve-section');
+const problemDisplay = document.getElementById('problem-display');
+const answerInput = document.getElementById('answer-input');
+const answerFeedback = document.getElementById('answer-feedback');
+
+let ringing = false;
+let candidates = [];
+let selectedIndex = null;
 
 function render() {
   const data = loadData();
-  output.textContent = data.text ? data.text : 'まだ何もありません';
-  output.className = data.text ? '' : 'muted';
+  currentAlarmEl.textContent = (data.armed && data.alarmTime)
+    ? `${data.alarmTime} にセット済み`
+    : '未設定';
+
+  ringingSection.hidden = !ringing;
+  candidatesSection.hidden = !ringing || selectedIndex !== null;
+  solveSection.hidden = !ringing || selectedIndex === null;
 }
 
-document.getElementById('save').addEventListener('click', () => {
+function renderCandidates() {
+  candidatesEl.innerHTML = '';
+  candidates.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'candidate-btn';
+    btn.innerHTML =
+      `<strong>${c.label}</strong><br>∫<sub>${c.a}</sub><sup>${c.b}</sup> (${c.exprHtml}) dx`;
+    btn.addEventListener('click', () => selectCandidate(i));
+    candidatesEl.appendChild(btn);
+  });
+}
+
+function startRinging() {
+  candidates = genCandidates();
+  selectedIndex = null;
+  ringing = true;
+  startAlarmSound();
+  renderCandidates();
+  render();
+}
+
+function selectCandidate(i) {
+  selectedIndex = i;
+  const c = candidates[i];
+  problemDisplay.innerHTML =
+    `<strong>${c.label}</strong>：∫<sub>${c.a}</sub><sup>${c.b}</sup> (${c.exprHtml}) dx = ?`;
+  answerInput.value = '';
+  answerFeedback.textContent = '';
+  answerFeedback.className = '';
+  render();
+  answerInput.focus();
+}
+
+document.getElementById('arm').addEventListener('click', () => {
+  ensureAudioContext(); // ユーザー操作のタイミングで有効化しておく
+  if (!timeInput.value) {
+    alert('時刻を入力してください');
+    return;
+  }
   const data = loadData();
-  data.text = input.value;
+  data.alarmTime = timeInput.value;
+  data.armed = true;
   saveData(data);
-  input.value = '';
   render();
 });
+
+document.getElementById('disarm').addEventListener('click', () => {
+  const data = loadData();
+  data.armed = false;
+  saveData(data);
+  render();
+});
+
+document.getElementById('test-ring').addEventListener('click', () => {
+  ensureAudioContext();
+  if (!ringing) startRinging();
+});
+
+document.getElementById('answer-check').addEventListener('click', () => {
+  const c = candidates[selectedIndex];
+  const val = parseFloat(answerInput.value);
+
+  if (Number.isNaN(val)) {
+    answerFeedback.textContent = '数字を入力してください';
+    answerFeedback.className = '';
+    return;
+  }
+
+  if (Math.abs(val - c.answer) < 0.05) {
+    answerFeedback.textContent = '正解！アラームを止めました。';
+    answerFeedback.className = 'ok';
+    stopAlarmSound();
+    ringing = false;
+    selectedIndex = null;
+    const data = loadData();
+    data.armed = false; // 次の朝はまたセットし直す
+    saveData(data);
+    render();
+  } else {
+    answerFeedback.textContent = '不正解。もう一度計算してみてください。';
+    answerFeedback.className = 'ng';
+  }
+});
+
+// 時計の表示と、アラーム時刻になったかどうかの監視
+setInterval(() => {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${hh}:${mm}:${ss}`;
+
+  const data = loadData();
+  if (data.armed && !ringing && `${hh}:${mm}` === data.alarmTime) {
+    startRinging();
+  }
+}, 1000);
 
 render();
 </script>
