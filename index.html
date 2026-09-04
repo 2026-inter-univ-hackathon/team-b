@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>プロダクト名</title>
+<title>数学クイズ目覚まし</title>
 <style>
   /* ============================================================
      見た目。動線が通ってから、時間が余ったら手を入れる
      ============================================================ */
-  :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; }
+  :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; --danger: #c53030; }
   * { box-sizing: border-box; }
   body {
     font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
@@ -20,44 +20,74 @@
   .lead { color: #666; margin: 0 0 24px; }
   section { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
   h2 { font-size: 1rem; margin: 0 0 12px; }
-  input, textarea, button { font: inherit; }
-  input, textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
+  input, select, button { font: inherit; }
+  input, select { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
   button { padding: 8px 16px; border: 0; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; }
   button:hover { opacity: .85; }
+  button.secondary { background: #fff; color: var(--danger); border: 1px solid var(--danger); margin-top: 8px; }
   .row { display: flex; gap: 8px; align-items: center; }
   .muted { color: #666; font-size: .9rem; }
+  .note { color: #888; font-size: .8rem; margin-top: 8px; }
+
+  /* アラーム鳴動中のオーバーレイ */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(197, 48, 48, .96);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .overlay[hidden] { display: none; }
+  .overlay-box { background: #fff; border-radius: 12px; padding: 24px; max-width: 400px; width: 100%; text-align: center; }
+  .overlay-box h2 { color: var(--danger); font-size: 1.3rem; }
+  .problem { font-size: 1.3rem; font-weight: bold; margin: 16px 0; text-align: left; }
+  .feedback { min-height: 1.4em; color: var(--danger); font-weight: bold; }
 </style>
 </head>
 <body>
 <main>
 
-  <h1>プロダクト名</h1>
-  <p class="lead">一言で何か（誰の、何を解決するか）</p>
+  <h1>数学クイズ目覚まし</h1>
+  <p class="lead">設定した時刻に鳴り、数学の問題を解かないと止まらないアラーム</p>
 
   <!-- ============================================================
-       ここから下が本体。セクションを足したり消したりして作る
+       ここから下が本体。① 時刻を設定する → ② その時刻に鳴る → ③ 問題を解いて止める
+       この1本の動線だけを通す。枝分かれは作らない
        ============================================================ -->
 
   <section>
-    <h2>入力</h2>
+    <h2>アラーム設定</h2>
     <div class="row">
-      <input id="input" type="text" placeholder="ここに入力">
-      <button id="save">保存</button>
+      <input id="alarmTime" type="time">
+      <select id="level">
+        <option value="1">レベル1（微分：基本）</option>
+        <option value="2">レベル2（微分：積の法則）</option>
+        <option value="3" selected>レベル3（定積分）</option>
+        <option value="4">レベル4（極限：0/0）</option>
+        <option value="5">レベル5（極限：∞）</option>
+      </select>
+      <button id="setAlarm">セットする</button>
     </div>
+    <p id="alarmStatus" class="muted">アラームは設定されていません</p>
+    <button id="clearAlarm" class="secondary" hidden>解除する</button>
+    <p class="note">このタブを開いたままにしてください（閉じると鳴りません）</p>
   </section>
-
-  <section>
-    <h2>結果</h2>
-    <div id="output" class="muted">まだ何もありません</div>
-  </section>
-
-  <!-- ============================================================
-       AI に任せない部分は、ここに置くことが多いです。
-       AI が候補を出して、最後に人が選ぶ／決める場所を1つ残してください。
-       （例）候補を3つ並べて、人がボタンで選ぶ
-       ============================================================ -->
 
 </main>
+
+<!-- ============================================================
+     AI に任せない部分：問題に正解したかどうかは機械が自動判定するが、
+     「起きたことにする（アラームを止める）」という最終判断は
+     人が答えを入力してボタンを押すまで発生しない
+     ============================================================ -->
+<div id="overlay" class="overlay" hidden>
+  <div class="overlay-box">
+    <h2>アラーム！</h2>
+    <p class="muted">この問題を解くと止まります</p>
+    <p id="levelLabel" class="muted"></p>
+    <p id="problem" class="problem"></p>
+    <input id="answer" type="number" inputmode="numeric" placeholder="答えを入力">
+    <button id="submitAnswer">止める</button>
+    <p id="feedback" class="feedback"></p>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -81,28 +111,231 @@ function saveData(data) {
 
 // ============================================================
 // ここから下が処理。動線を1本だけ通す
-//   ① 人が入力すること → ② 画面で起きること → ③ 人が目にする結果
-// この3つが繋がったら、9/4 は合格です。枝分かれは作らないでください。
+//   ① 時刻を設定する → ② その時刻になると鳴る → ③ 問題を解いて止める
 // ============================================================
 
-const input  = document.getElementById('input');
-const output = document.getElementById('output');
+const alarmTimeInput = document.getElementById('alarmTime');
+const levelSelect    = document.getElementById('level');
+const setAlarmBtn    = document.getElementById('setAlarm');
+const clearAlarmBtn  = document.getElementById('clearAlarm');
+const alarmStatus    = document.getElementById('alarmStatus');
 
-function render() {
+const overlay        = document.getElementById('overlay');
+const levelLabelEl   = document.getElementById('levelLabel');
+const problemEl      = document.getElementById('problem');
+const answerInput    = document.getElementById('answer');
+const submitBtn      = document.getElementById('submitAnswer');
+const feedbackEl     = document.getElementById('feedback');
+
+let audioCtx = null;
+let beepTimer = null;
+let ringing = false;
+let currentAnswer = null;
+
+function renderStatus() {
   const data = loadData();
-  output.textContent = data.text ? data.text : 'まだ何もありません';
-  output.className = data.text ? '' : 'muted';
+  if (data.alarmTime) {
+    alarmStatus.textContent = `次のアラーム: ${data.alarmTime}（レベル${data.level || 3}）`;
+    clearAlarmBtn.hidden = false;
+  } else {
+    alarmStatus.textContent = 'アラームは設定されていません';
+    clearAlarmBtn.hidden = true;
+  }
+  if (data.level) levelSelect.value = data.level;
 }
 
-document.getElementById('save').addEventListener('click', () => {
+setAlarmBtn.addEventListener('click', () => {
+  if (!alarmTimeInput.value) return;
+  // ユーザー操作のタイミングで AudioContext を作っておく（あとで音を鳴らすため）
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // タブを見ていない間も気づけるように、OS通知の許可をこのタイミングで求めておく
+  if (window.Notification && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
   const data = loadData();
-  data.text = input.value;
+  data.alarmTime = alarmTimeInput.value;
+  data.level = Number(levelSelect.value);
   saveData(data);
-  input.value = '';
-  render();
+  renderStatus();
 });
 
-render();
+clearAlarmBtn.addEventListener('click', () => {
+  const data = loadData();
+  delete data.alarmTime;
+  saveData(data);
+  renderStatus();
+});
+
+function currentHHMM() {
+  const now = new Date();
+  return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+}
+
+function checkAlarm() {
+  if (ringing) return;
+  const data = loadData();
+  if (data.alarmTime && data.alarmTime === currentHHMM()) {
+    startRinging();
+  }
+}
+setInterval(checkAlarm, 1000);
+
+function beep() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.frequency.value = 880;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.3);
+}
+
+// ============================================================
+// 理系学生向けの微積分クイズを、外部通信なしのローカル処理で生成する。
+// レベル1〜5でテーマを変え、答えは必ず整数になるようにパラメータを選ぶ。
+// ============================================================
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randNonZero(min, max) {
+  let n;
+  do { n = randInt(min, max); } while (n === 0);
+  return n;
+}
+
+// 係数の配列 [[係数, 変数表記], ...] を "3x² - 2x + 5" のような文字列にする
+function polyToText(terms) {
+  let text = '';
+  for (const [coef, varStr] of terms) {
+    if (coef === 0) continue;
+    const abs = Math.abs(coef);
+    const coefText = (abs === 1 && varStr !== '') ? '' : String(abs);
+    if (text === '') {
+      text = (coef < 0 ? '-' : '') + coefText + varStr;
+    } else {
+      text += (coef < 0 ? ' - ' : ' + ') + coefText + varStr;
+    }
+  }
+  return text || '0';
+}
+
+const LEVELS = {
+  // レベル1: 多項式の微分係数
+  1: () => {
+    const a = randNonZero(-6, 6), b = randInt(-6, 6), c = randInt(-6, 6);
+    const x0 = randInt(-4, 4);
+    const answer = 2 * a * x0 + b;
+    const fx = polyToText([[a, 'x²'], [b, 'x'], [c, '']]);
+    return { text: `f(x) = ${fx} のとき、f'(${x0}) を求めよ。`, answer };
+  },
+  // レベル2: 積の法則
+  2: () => {
+    const a = randNonZero(-4, 4), b = randInt(-5, 5);
+    const c = randNonZero(-4, 4), d = randInt(-5, 5);
+    const x0 = randInt(-3, 3);
+    const answer = 2 * a * c * x0 + (a * d + b * c);
+    const p1 = polyToText([[a, 'x'], [b, '']]);
+    const p2 = polyToText([[c, 'x'], [d, '']]);
+    return { text: `f(x) = (${p1})(${p2}) のとき、f'(${x0}) を求めよ。`, answer };
+  },
+  // レベル3: 多項式の定積分
+  3: () => {
+    const a = 3 * randNonZero(-3, 3);
+    const b = 2 * randInt(-4, 4);
+    const c = randInt(-5, 5);
+    const p = randInt(-3, 2);
+    const q = p + randInt(1, 4);
+    const answer = (a / 3) * (q ** 3 - p ** 3) + (b / 2) * (q ** 2 - p ** 2) + c * (q - p);
+    const fx = polyToText([[a, 'x²'], [b, 'x'], [c, '']]);
+    return { text: `∫[${p}→${q}] (${fx}) dx を求めよ。`, answer };
+  },
+  // レベル4: 不定形 0/0 の極限（因数分解）
+  4: () => {
+    const k = randNonZero(-4, 4);
+    const a = randNonZero(-6, 6);
+    const answer = 2 * k * a;
+    const kText = k === 1 ? '' : (k === -1 ? '-' : String(k));
+    const denom = `x ${a < 0 ? '+' : '-'} ${Math.abs(a)}`;
+    return { text: `lim[x→${a}] ${kText}(x² - ${a * a}) / (${denom}) を求めよ。`, answer };
+  },
+  // レベル5: 無限大での有理関数の極限（最高次の項で決まる）
+  5: () => {
+    const b = randNonZero(-5, 5);
+    const k = randNonZero(-4, 4);
+    const a = b * k;
+    const numB = randInt(-9, 9), numC = randInt(-9, 9);
+    const denB = randInt(-9, 9), denC = randInt(-9, 9);
+    const answer = k;
+    const num = polyToText([[a, 'x²'], [numB, 'x'], [numC, '']]);
+    const den = polyToText([[b, 'x²'], [denB, 'x'], [denC, '']]);
+    return { text: `lim[x→∞] (${num}) / (${den}) を求めよ。`, answer };
+  },
+};
+
+function makeProblem() {
+  const data = loadData();
+  const level = data.level || 3;
+  const { text, answer } = LEVELS[level]();
+  currentAnswer = answer;
+  levelLabelEl.textContent = `レベル ${level} / 5`;
+  problemEl.textContent = text;
+}
+
+function startRinging() {
+  ringing = true;
+  overlay.hidden = false;
+  feedbackEl.textContent = '';
+  answerInput.value = '';
+  makeProblem();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  beep();
+  beepTimer = setInterval(beep, 700);
+  answerInput.focus();
+  // タブが背面/非アクティブでも気づけるように、OS通知でも知らせる
+  // （タブ自体を閉じている場合はこの通知も出せない）
+  if (window.Notification && Notification.permission === 'granted') {
+    const notification = new Notification('アラーム', { body: '問題を解いて止めてください' });
+    notification.onclick = () => window.focus();
+  }
+}
+
+function stopRinging() {
+  ringing = false;
+  overlay.hidden = true;
+  clearInterval(beepTimer);
+  beepTimer = null;
+  const data = loadData();
+  delete data.alarmTime; // 鳴り終わったら1回分のアラームは消す
+  saveData(data);
+  renderStatus();
+}
+
+function submitAnswer() {
+  const value = Number(answerInput.value);
+  if (answerInput.value !== '' && value === currentAnswer) {
+    stopRinging();
+  } else {
+    feedbackEl.textContent = '不正解。もう一問';
+    makeProblem();
+    answerInput.value = '';
+    answerInput.focus();
+  }
+}
+
+submitBtn.addEventListener('click', submitAnswer);
+answerInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAnswer();
+});
+
+renderStatus();
 </script>
 </body>
 </html>
