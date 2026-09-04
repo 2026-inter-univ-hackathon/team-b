@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>二度寝防止アラーム</title>
+<title>プロダクト名</title>
 <style>
+  /* ============================================================
+     見た目。動線が通ってから、時間が余ったら手を入れる
+     ============================================================ */
   :root { --fg: #1a1a1a; --bg: #fff; --line: #d8dce2; --accent: #2b6cb0; }
   * { box-sizing: border-box; }
   body {
@@ -18,107 +21,48 @@
   section { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
   h2 { font-size: 1rem; margin: 0 0 12px; }
   input, textarea, button { font: inherit; }
-  input[type=time], input[type=number] { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
+  input, textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
   button { padding: 8px 16px; border: 0; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; }
   button:hover { opacity: .85; }
-  button.secondary { background: #888; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row { display: flex; gap: 8px; align-items: center; }
   .muted { color: #666; font-size: .9rem; }
-  #status { font-weight: bold; }
-  #clock { font-size: 2rem; font-weight: bold; letter-spacing: .05em; }
-
-  /* ==== アラーム鳴動中の全画面オーバーレイ ==== */
-  .overlay {
-    position: fixed; inset: 0; z-index: 999;
-    display: flex; align-items: center; justify-content: center;
-    background: #b00020; color: #fff; text-align: center;
-    padding: 24px;
-  }
-  .hidden { display: none; }
-  .overlay.flash { animation: flash 1s steps(1) infinite; }
-  @keyframes flash { 50% { background: #1a1a1a; } }
-  .overlay-inner { max-width: 480px; width: 100%; }
-  .overlay h2 { color: #fff; font-size: 1.6rem; }
-  .question {
-    font-size: 1.4rem; font-weight: bold; margin: 16px 0;
-    background: rgba(255,255,255,.15); border-radius: 8px; padding: 16px;
-  }
-  .overlay input[type=number] {
-    font-size: 1.4rem; text-align: center; padding: 12px; margin-bottom: 12px;
-  }
-  .overlay button { font-size: 1.1rem; padding: 12px 20px; }
-  .feedback { min-height: 1.4em; font-weight: bold; }
-  .note-white { color: #ffd7d7; font-size: .9rem; }
 </style>
 </head>
 <body>
 <main>
 
-  <h1>二度寝防止アラーム</h1>
-  <p class="lead">朝つい二度寝してしまう理系大学生のための、脳がちょうど働くくらいの問題を解かないと止まらないアラーム</p>
+  <h1>プロダクト名</h1>
+  <p class="lead">一言で何か（誰の、何を解決するか）</p>
+
+  <!-- ============================================================
+       ここから下が本体。セクションを足したり消したりして作る
+       ============================================================ -->
 
   <section>
-    <h2>現在時刻</h2>
-    <div id="clock">--:--:--</div>
-  </section>
-
-  <section>
-    <h2>アラーム設定</h2>
+    <h2>入力</h2>
     <div class="row">
-      <input id="alarmTime" type="time">
-      <label><input id="alarmEnabled" type="checkbox"> 有効にする</label>
-      <button id="save">保存する</button>
+      <input id="input" type="text" placeholder="ここに入力">
+      <button id="save">保存</button>
     </div>
-    <p id="status" class="muted">まだ設定されていません</p>
   </section>
 
   <section>
-    <h2>動作確認</h2>
-    <p class="muted">実際にその時刻を待たずに、アラームの鳴り方と問題を確認できます。</p>
-    <button id="testRing" class="secondary">今すぐ鳴らす（テスト）</button>
+    <h2>結果</h2>
+    <div id="output" class="muted">まだ何もありません</div>
   </section>
 
   <!-- ============================================================
-       AI に任せない部分：
-       問題に正解したかどうかは自動で判定するが、
-       「本当に起きたか」の最終判断は必ず人（本人）がボタンで行う。
-       正解＝起床の証明にはしない。
+       AI に任せない部分は、ここに置くことが多いです。
+       AI が候補を出して、最後に人が選ぶ／決める場所を1つ残してください。
+       （例）候補を3つ並べて、人がボタンで選ぶ
        ============================================================ -->
-  <section>
-    <h2>AI に任せない部分</h2>
-    <p class="muted">問題の採点は自動で行いますが、正解しても自動では止まりません。「起きた」の最終判断は必ず本人がボタンで押して決めます（正解＝起床の証明にはしないため）。</p>
-  </section>
 
 </main>
-
-<div id="overlay" class="overlay hidden flash">
-  <div class="overlay-inner">
-
-    <div id="ringingView">
-      <h2>起きる時間です！</h2>
-      <div id="question" class="question"></div>
-      <input id="answerInput" type="number" inputmode="numeric" placeholder="答えを入力">
-      <div class="row" style="justify-content:center">
-        <button id="submitAnswer">解答する</button>
-      </div>
-      <p id="feedback" class="feedback"></p>
-    </div>
-
-    <div id="confirmView" class="hidden">
-      <h2>正解！</h2>
-      <p>本当に起きましたか？<br><span class="note-white">（正解しただけでは終了しません。最後は自分で決めてください）</span></p>
-      <div class="row" style="justify-content:center">
-        <button id="stillSleepyBtn" class="secondary">まだ眠い → もう一問</button>
-        <button id="wokeUpBtn">起きた。アラームを終了する</button>
-      </div>
-    </div>
-
-  </div>
-</div>
 
 <script>
 // ============================================================
 // データの保存と読み込み（localStorage）
+// この2つの関数だけ使えば、リロードしても消えません
 // ============================================================
 
 const STORAGE_KEY = 'app-data';
@@ -127,7 +71,7 @@ function loadData() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
   } catch {
-    return {};
+    return {};   // 壊れた値が入っていても落ちないようにする
   }
 }
 
@@ -136,243 +80,29 @@ function saveData(data) {
 }
 
 // ============================================================
-// 動線: ① アラーム時刻を設定する
-//     → ② 時刻になると鳴り、脳がちょうど働くくらいの問題が出る
-//     → ③ 正解し、かつ本人が「起きた」を押すとアラームが終わる
+// ここから下が処理。動線を1本だけ通す
+//   ① 人が入力すること → ② 画面で起きること → ③ 人が目にする結果
+// この3つが繋がったら、9/4 は合格です。枝分かれは作らないでください。
 // ============================================================
 
-const clockEl = document.getElementById('clock');
-const alarmTimeInput = document.getElementById('alarmTime');
-const alarmEnabledInput = document.getElementById('alarmEnabled');
-const statusEl = document.getElementById('status');
+const input  = document.getElementById('input');
+const output = document.getElementById('output');
 
-const overlay = document.getElementById('overlay');
-const ringingView = document.getElementById('ringingView');
-const confirmView = document.getElementById('confirmView');
-const questionEl = document.getElementById('question');
-const answerInput = document.getElementById('answerInput');
-const feedbackEl = document.getElementById('feedback');
-
-let isRinging = false;
-let currentAnswer = null;
-let audioCtx = null;
-let oscillator = null;
-let gainNode = null;
-let beepInterval = null;
-
-// ---- 画面の初期表示 ----
-function renderStatus() {
+function render() {
   const data = loadData();
-  if (data.alarmTime) {
-    alarmTimeInput.value = data.alarmTime;
-    alarmEnabledInput.checked = !!data.enabled;
-    statusEl.textContent = data.enabled
-      ? `次のアラーム: ${data.alarmTime}`
-      : `アラームは無効です（設定時刻: ${data.alarmTime}）`;
-  } else {
-    statusEl.textContent = 'まだ設定されていません';
-  }
-}
-
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  output.textContent = data.text ? data.text : 'まだ何もありません';
+  output.className = data.text ? '' : 'muted';
 }
 
 document.getElementById('save').addEventListener('click', () => {
-  initAudio(); // ユーザー操作のタイミングで音の再生を許可させておく
   const data = loadData();
-  data.alarmTime = alarmTimeInput.value;
-  data.enabled = alarmEnabledInput.checked;
+  data.text = input.value;
   saveData(data);
-  renderStatus();
+  input.value = '';
+  render();
 });
 
-document.getElementById('testRing').addEventListener('click', () => {
-  initAudio();
-  startRinging();
-});
-
-// ---- 時計とアラーム判定 ----
-function pad(n) { return String(n).padStart(2, '0'); }
-
-function tick() {
-  const now = new Date();
-  const hh = pad(now.getHours());
-  const mm = pad(now.getMinutes());
-  const ss = pad(now.getSeconds());
-  clockEl.textContent = `${hh}:${mm}:${ss}`;
-
-  const data = loadData();
-  if (!data.enabled || isRinging) return;
-
-  const currentHHMM = `${hh}:${mm}`;
-  const todayKey = `${now.toDateString()} ${currentHHMM}`;
-  if (currentHHMM === data.alarmTime && data.lastDismissedKey !== todayKey) {
-    startRinging();
-  }
-}
-setInterval(tick, 1000);
-tick();
-
-// ---- 問題の出題（理系大学生の脳がちょうど働くくらいの難易度） ----
-function randInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function signedTerm(coef, sym) {
-  if (coef === 0) return '';
-  const abs = Math.abs(coef);
-  const numPart = (abs === 1 && sym) ? '' : String(abs);
-  return (coef > 0 ? ' + ' : ' - ') + numPart + sym;
-}
-
-function problemLinearEquation() {
-  const a = randInt(2, 9);
-  const x = randInt(-9, 9);
-  const b = randInt(-15, 15);
-  const c = a * x + b;
-  return {
-    text: `${a}x${signedTerm(b, '')} = ${c} のとき、x の値は？`,
-    answer: x,
-  };
-}
-
-function problemDerivative() {
-  const a = randInt(1, 4);
-  const b = randInt(-6, 6);
-  const c = randInt(-6, 6);
-  const x0 = randInt(-3, 3);
-  const answer = 3 * a * x0 * x0 + 2 * b * x0 + c;
-  return {
-    text: `f(x) = ${a}x³${signedTerm(b, 'x²')}${signedTerm(c, 'x')} のとき、f'(${x0}) の値は？`,
-    answer,
-  };
-}
-
-function problemMultiplication() {
-  const a = randInt(11, 19);
-  const b = randInt(4, 9);
-  return {
-    text: `${a} × ${b} = ?`,
-    answer: a * b,
-  };
-}
-
-function problemSequence() {
-  const geometric = Math.random() < 0.5;
-  let terms, answer;
-  if (geometric) {
-    const start = randInt(1, 4);
-    const ratio = randInt(2, 3);
-    terms = [start, start * ratio, start * ratio ** 2, start * ratio ** 3];
-    answer = start * ratio ** 4;
-  } else {
-    const start = randInt(1, 12);
-    const diff = randInt(2, 9);
-    terms = [start, start + diff, start + 2 * diff, start + 3 * diff];
-    answer = start + 4 * diff;
-  }
-  return {
-    text: `${terms.join(', ')}, ? と続く数列。次にくる数は？`,
-    answer,
-  };
-}
-
-function generateProblem() {
-  const generators = [problemLinearEquation, problemDerivative, problemMultiplication, problemSequence];
-  const gen = generators[randInt(0, generators.length - 1)];
-  return gen();
-}
-
-function showNewProblem() {
-  const problem = generateProblem();
-  currentAnswer = problem.answer;
-  questionEl.textContent = problem.text;
-  answerInput.value = '';
-  feedbackEl.textContent = '';
-  answerInput.focus();
-}
-
-// ---- アラーム音（外部ファイルなし。Web Audio API で生成） ----
-function startAlarmSound() {
-  initAudio();
-  oscillator = audioCtx.createOscillator();
-  gainNode = audioCtx.createGain();
-  oscillator.type = 'square';
-  oscillator.frequency.value = 880;
-  gainNode.gain.value = 0.2;
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-  oscillator.start();
-  beepInterval = setInterval(() => {
-    gainNode.gain.value = gainNode.gain.value > 0 ? 0 : 0.2;
-  }, 300);
-}
-
-function stopAlarmSound() {
-  if (beepInterval) { clearInterval(beepInterval); beepInterval = null; }
-  if (oscillator) { oscillator.stop(); oscillator.disconnect(); oscillator = null; }
-  if (gainNode) { gainNode.disconnect(); gainNode = null; }
-}
-
-// ---- 鳴動 → 出題 → 正解 → 本人の最終確認 ----
-function startRinging() {
-  if (isRinging) return; // 多重クリックなどで二重に鳴らし始めない
-  isRinging = true;
-  overlay.classList.remove('hidden');
-  ringingView.classList.remove('hidden');
-  confirmView.classList.add('hidden');
-  startAlarmSound();
-  showNewProblem();
-}
-
-document.getElementById('submitAnswer').addEventListener('click', checkAnswer);
-answerInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') checkAnswer();
-});
-
-function checkAnswer() {
-  const value = Number(answerInput.value);
-  if (answerInput.value === '' || Number.isNaN(value)) {
-    feedbackEl.textContent = '数字を入力してください';
-    return;
-  }
-  if (value === currentAnswer) {
-    stopAlarmSound();
-    ringingView.classList.add('hidden');
-    confirmView.classList.remove('hidden');
-  } else {
-    feedbackEl.textContent = '違います。もう一度！';
-    showNewProblem();
-  }
-}
-
-document.getElementById('stillSleepyBtn').addEventListener('click', () => {
-  startAlarmSound();
-  ringingView.classList.remove('hidden');
-  confirmView.classList.add('hidden');
-  showNewProblem();
-});
-
-document.getElementById('wokeUpBtn').addEventListener('click', () => {
-  const now = new Date();
-  const currentHHMM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const data = loadData();
-  data.lastDismissedKey = `${now.toDateString()} ${currentHHMM}`;
-  saveData(data);
-
-  isRinging = false;
-  stopAlarmSound();
-  overlay.classList.add('hidden');
-  renderStatus();
-});
-
-renderStatus();
+render();
 </script>
 </body>
 </html>
