@@ -1,7 +1,7 @@
 // 状態管理・タイマー・音・保存。フレームワークなし。
 // 状態: setup → armed → ringing → done
 
-const STORAGE_KEY = "rikei-alarm";
+const STORAGE_KEY = "zekki-helper";
 
 // ---------- 保存 ----------
 // Safari の file:// では localStorage が使えないことがあるので、失敗しても動作を続ける
@@ -88,14 +88,14 @@ const Attention = {
   notify() {
     try {
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("リケイアラーム", { body: "起きろ。問題を解くまで止まらない。" });
+        new Notification("絶起ヘルパー", { body: "起きろ。問題を解くまで止まらない。" });
       }
     } catch { /* 同上 */ }
   },
 };
 
 // ---------- 状態 ----------
-// localStorage["rikei-alarm"] にこの形で保存する
+// localStorage["zekki-helper"] にこの形で保存する
 const state = {
   alarm: { time: "07:30", armed: false, genres: ["math", "code"] },
   log: [],
