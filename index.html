@@ -45,6 +45,16 @@
       <p class="muted">5分正解できなければ一段やさしくします（ログに残ります）</p>
     </fieldset>
 
+    <fieldset id="sound">
+      <legend>音</legend>
+      <label><input type="radio" name="sound" value="beep" checked> ビープ</label>
+      <label><input type="radio" name="sound" value="siren"> サイレン</label>
+      <label><input type="radio" name="sound" value="chime"> 学校のチャイム</label>
+      <label><input type="radio" name="sound" value="clock"> 目覚まし時計</label>
+      <div class="row"><button id="btn-preview-sound" type="button">試聴（2秒）</button></div>
+      <p class="muted">どの音も 30 秒ごとに少しずつ大きくなります</p>
+    </fieldset>
+
     <div class="row">
       <button id="btn-set" class="primary">セット</button>
       <button id="btn-demo">10秒後に鳴らす</button>
@@ -53,7 +63,7 @@
     <details class="check">
       <summary>動作確認（開発用）</summary>
       <div class="row">
-        <button id="btn-check-beep">ビープを1秒鳴らす</button>
+        <button id="btn-check-beep">選んだ音を鳴らす</button>
         <button id="btn-check-storage">localStorage を確認</button>
       </div>
       <p id="check-result" class="muted">未確認</p>
