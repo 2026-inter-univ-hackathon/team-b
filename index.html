@@ -37,6 +37,14 @@
       <label><input type="checkbox" name="genre" value="code" checked> プログラミング</label>
     </fieldset>
 
+    <fieldset id="difficulty">
+      <legend>難易度</legend>
+      <label><input type="radio" name="difficulty" value="easy"> やさしい</label>
+      <label><input type="radio" name="difficulty" value="normal" checked> ふつう</label>
+      <label><input type="radio" name="difficulty" value="hard"> むずかしい</label>
+      <p class="muted">5分正解できなければ一段やさしくします（ログに残ります）</p>
+    </fieldset>
+
     <div class="row">
       <button id="btn-set" class="primary">セット</button>
       <button id="btn-demo">10秒後に鳴らす</button>

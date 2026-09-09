@@ -97,7 +97,7 @@ const Attention = {
 // ---------- 状態 ----------
 // localStorage["zekki-helper"] にこの形で保存する
 const state = {
-  alarm: { time: "07:30", armed: false, genres: ["math", "code"] },
+  alarm: { time: "07:30", armed: false, genres: ["math", "code"], difficulty: "normal" },
   log: [],
 };
 
@@ -130,6 +130,22 @@ function applyGenresToForm() {
   document.querySelectorAll('input[name="genre"]').forEach((el) => {
     el.checked = state.alarm.genres.includes(el.value);
   });
+}
+
+function selectedDifficulty() {
+  const el = document.querySelector('input[name="difficulty"]:checked');
+  return el ? el.value : "normal";
+}
+
+function applyDifficultyToForm() {
+  document.querySelectorAll('input[name="difficulty"]').forEach((el) => {
+    el.checked = el.value === state.alarm.difficulty;
+  });
+}
+
+// 今出題すべき難易度。5分正解できなかったら一段下げる
+function currentLevel() {
+  return session.eased ? Problems.easier(state.alarm.difficulty) : state.alarm.difficulty;
 }
 
 // ---------- 監視 ----------
@@ -204,6 +220,7 @@ function arm() {
   Attention.requestPermission();
   state.alarm.time = $("#alarm-time").value || "07:30";
   state.alarm.genres = selectedGenres();
+  state.alarm.difficulty = selectedDifficulty();
   state.alarm.armed = true;
   state.alarm.armedAt = Date.now();
   persist();
@@ -220,6 +237,7 @@ function disarm() {
 function armDemo() {
   Sound.init();
   state.alarm.genres = selectedGenres();
+  state.alarm.difficulty = selectedDifficulty();
   // デモは保存しない。リロードで「10秒後」が復元されても意味がないため
   startWatching(Date.now() + 10 * 1000);
 }
@@ -242,7 +260,7 @@ function renderMatrix(rows) {
 }
 
 function showProblem() {
-  session.problem = Problems.generate(state.alarm.genres, session.eased ? "easy" : "normal");
+  session.problem = Problems.generate(state.alarm.genres, currentLevel());
   session.attempts += 1;
   const q = $("#question");
   q.textContent = "";
@@ -257,7 +275,7 @@ function showProblem() {
     pre.textContent = text.pre;
     q.appendChild(pre);
   }
-  $("#attempts").textContent = `${session.attempts}問目` + (session.eased ? "（難易度を下げました）" : "");
+  $("#attempts").textContent = `${session.attempts}問目（${Problems.LEVEL_LABELS[currentLevel()]}）` + (session.eased ? "　難易度を下げました" : "");
   const input = $("#answer");
   input.value = "";
   input.classList.remove("wrong");
@@ -268,11 +286,14 @@ function startRinging() {
   session.attempts = 0;
   session.startedAt = Date.now();
   session.eased = false;
-  // 5分正解できなければ難易度を下げる。寝たまま諦めさせないため。下げたことはログに残す
-  session.easeTimer = setTimeout(() => {
-    session.eased = true;
-    $("#attempts").textContent += "（難易度を下げました）";
-  }, EASE_AFTER_MS);
+  // 5分正解できなければ難易度を一段下げる。寝たまま諦めさせないため。下げたことはログに残す
+  // 「やさしい」を選んでいるときはこれ以上下げられないので何もしない
+  if (Problems.easier(state.alarm.difficulty)) {
+    session.easeTimer = setTimeout(() => {
+      session.eased = true;
+      $("#attempts").textContent += "　難易度を下げました";
+    }, EASE_AFTER_MS);
+  }
   Sound.start();
   Attention.start();
   setScreen("ringing");
@@ -319,7 +340,8 @@ function renderLog() {
   ul.textContent = "";
   state.log.slice(-5).reverse().forEach((e) => {
     const li = document.createElement("li");
-    li.textContent = `${e.date}　${e.attempts}問目で正解　${e.seconds}秒` + (e.eased ? "　難易度↓" : "");
+    const level = e.difficulty ? `　${Problems.LEVEL_LABELS[e.difficulty] || e.difficulty}` : "";
+    li.textContent = `${e.date}${level}　${e.attempts}問目で正解　${e.seconds}秒` + (e.eased ? "　難易度↓" : "");
     ul.appendChild(li);
   });
 }
@@ -329,7 +351,7 @@ function finish() {
   Attention.stop();
   clearTimeout(session.easeTimer);
   const seconds = Math.round((Date.now() - session.startedAt) / 1000);
-  state.log.push({ date: todayKey(), attempts: session.attempts, seconds, eased: session.eased });
+  state.log.push({ date: todayKey(), attempts: session.attempts, seconds, eased: session.eased, difficulty: state.alarm.difficulty });
   state.alarm.armed = false;
   persist();
   $("#result").textContent = `${session.attempts}問目で正解、${seconds}秒` + (session.eased ? "（難易度を下げて）" : "");
@@ -355,6 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("#alarm-time").value = state.alarm.time;
   applyGenresToForm();
+  applyDifficultyToForm();
 
   $("#btn-set").addEventListener("click", arm);
   $("#btn-demo").addEventListener("click", armDemo);
