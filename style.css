@@ -89,7 +89,7 @@ label { display: block; margin: 20px 0 8px; font-weight: 600; }
 fieldset { margin: 24px 0; padding: 12px 24px 16px; }
 fieldset legend { font-weight: 600; padding: 0 8px; color: rgba(255,255,255,.8); }
 fieldset label { display: inline-block; margin: 8px 32px 4px 0; font-weight: 500; font-size: 1.15rem; cursor: pointer; }
-fieldset input[type="checkbox"] { width: 1.3em; height: 1.3em; vertical-align: -.2em; margin-right: .3em; accent-color: var(--accent); }
+fieldset input[type="checkbox"], fieldset input[type="radio"] { width: 1.3em; height: 1.3em; vertical-align: -.2em; margin-right: .3em; accent-color: var(--accent); }
 
 input, button { font: inherit; }
 input[type="time"], input[type="text"] {
