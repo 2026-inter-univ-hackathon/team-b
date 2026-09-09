@@ -42,6 +42,44 @@ const Problems = (() => {
     };
   }
 
+  // 定積分 ∫₀^k (2a·x + b) dx = a·k² + b·k。x の係数を偶数にして答えを整数にする
+  function integral(level) {
+    const hi = level === "easy" ? 4 : 9;
+    const a = rand(1, hi), b = rand(1, hi), k = rand(1, level === "easy" ? 3 : 5);
+    return {
+      text: `∫₀^${k} (${2 * a}x + ${b}) dx は？`,
+      answer: a * k * k + b * k,
+      genre: "math",
+    };
+  }
+
+  // ベクトルの内積。easy は 2 次元・非負成分、normal は 3 次元・負も含む
+  function dotProduct(level) {
+    const dim = level === "easy" ? 2 : 3;
+    const lo = level === "easy" ? 0 : -5, hi = 5;
+    const u = Array.from({ length: dim }, () => rand(lo, hi));
+    const v = Array.from({ length: dim }, () => rand(lo, hi));
+    const show = (vec) => `(${vec.join(", ")})`.replace(/-/g, "−");
+    return {
+      text: `${show(u)}·${show(v)} は？`,
+      answer: u.reduce((s, x, i) => s + x * v[i], 0),
+      genre: "math",
+    };
+  }
+
+  // 組合せ nCk。分子を順に掛けて割ると各段階で整数になる
+  function combination(level) {
+    const n = level === "easy" ? rand(4, 6) : rand(5, 9);
+    const k = level === "easy" ? 2 : rand(2, 3);
+    let c = 1;
+    for (let i = 1; i <= k; i++) c = (c * (n - k + i)) / i;
+    return {
+      text: `${n}C${k}（${n} 個から ${k} 個を選ぶ組合せの数）は？`,
+      answer: c,
+      genre: "math",
+    };
+  }
+
   // ---------- 物理 ----------
 
   // 等加速度運動。v = v0 + at、または x = v0 t + (1/2) a t²（a を偶数にして整数解にする）
@@ -59,6 +97,51 @@ const Problems = (() => {
     return {
       text: `初速 ${v0} m/s、加速度 ${a} m/s² で ${t} 秒間に進む距離は？（m）`,
       answer: v0 * t + (a * t * t) / 2,
+      genre: "physics",
+    };
+  }
+
+  // 運動エネルギー (1/2)mv²。m を偶数にして整数解にする
+  function kineticEnergy(level) {
+    const m = 2 * rand(1, level === "easy" ? 3 : 5), v = rand(2, level === "easy" ? 5 : 9);
+    return {
+      text: `質量 ${m} kg の物体が ${v} m/s で動くときの運動エネルギーは？（J）`,
+      answer: (m * v * v) / 2,
+      genre: "physics",
+    };
+  }
+
+  // オームの法則 V = IR。normal は半々で R = V/I を問う（V は I·R から作るので割り切れる）
+  function ohm(level) {
+    const i = rand(1, level === "easy" ? 5 : 9), r = rand(2, level === "easy" ? 9 : 20);
+    const v = i * r;
+    if (level === "easy" || Math.random() < 0.5) {
+      return {
+        text: `抵抗 ${r} Ω に電流 ${i} A が流れるときの電圧は？（V）`,
+        answer: v,
+        genre: "physics",
+      };
+    }
+    return {
+      text: `電圧 ${v} V をかけると電流 ${i} A が流れる抵抗の値は？（Ω）`,
+      answer: r,
+      genre: "physics",
+    };
+  }
+
+  // 自由落下。g = 10 m/s² で v = 10t、h = 5t²。easy は速度だけ
+  function freeFall(level) {
+    const t = rand(1, 5);
+    if (level === "easy" || Math.random() < 0.5) {
+      return {
+        text: `静止状態から自由落下して ${t} 秒後の速度は？（m/s、g = 10 m/s²）`,
+        answer: 10 * t,
+        genre: "physics",
+      };
+    }
+    return {
+      text: `静止状態から自由落下して ${t} 秒間に落ちる距離は？（m、g = 10 m/s²）`,
+      answer: 5 * t * t,
       genre: "physics",
     };
   }
@@ -105,10 +188,46 @@ const Problems = (() => {
     };
   }
 
+  // 再帰の階乗。k ≤ 6 なので最大 720
+  function recursion(level) {
+    const k = level === "easy" ? rand(2, 4) : rand(3, 6);
+    let f = 1;
+    for (let i = 2; i <= k; i++) f *= i;
+    return {
+      text: { pre: `def f(n):\n    if n <= 1:\n        return 1\n    return n * f(n - 1)\nprint(f(${k}))` },
+      answer: f,
+      genre: "code",
+    };
+  }
+
+  // 2進リテラル。easy は 3 bit、normal は 4〜6 bit
+  function binaryLiteral(level) {
+    const bits = level === "easy" ? 3 : rand(4, 6);
+    const n = rand(1 << (bits - 1), (1 << bits) - 1);
+    return {
+      text: { pre: `print(0b${n.toString(2)})` },
+      answer: n,
+      genre: "code",
+    };
+  }
+
+  // リストのスライスの合計。0 ≤ i < j ≤ len
+  function sliceSum(level) {
+    const len = level === "easy" ? 4 : rand(5, 6);
+    const arr = Array.from({ length: len }, () => rand(1, 9));
+    const i = level === "easy" ? rand(0, 1) : rand(0, len - 2);
+    const j = rand(i + 1, len);
+    return {
+      text: { pre: `a = [${arr.join(", ")}]\nprint(sum(a[${i}:${j}]))` },
+      answer: arr.slice(i, j).reduce((s, x) => s + x, 0),
+      genre: "code",
+    };
+  }
+
   const generators = {
-    math: [derivative, determinant],
-    physics: [uniformAcceleration],
-    code: [loopSum, bitwise, intDiv],
+    math: [derivative, determinant, integral, dotProduct, combination],
+    physics: [uniformAcceleration, kineticEnergy, ohm, freeFall],
+    code: [loopSum, bitwise, intDiv, recursion, binaryLiteral, sliceSum],
   };
 
   // 指定ジャンル群からランダムに1問生成する。ジャンルが空なら全ジャンルから
