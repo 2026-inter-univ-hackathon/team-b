@@ -55,6 +55,37 @@
       <p class="muted">どの音も 30 秒ごとに少しずつ大きくなります</p>
     </fieldset>
 
+    <fieldset id="lasttrain">
+      <legend>終電アラート</legend>
+      <p class="muted">自宅の最寄り駅以外にいるとき、そこから帰る終電を調べて、出発すべき時刻の少し前に知らせます。</p>
+      <div class="grid2">
+        <div>
+          <label for="home-station">自宅の最寄り駅</label>
+          <input id="home-station" type="text" class="small" placeholder="例: 吉祥寺">
+        </div>
+        <div>
+          <label for="current-station">今いる駅（空欄なら現在地から探す）</label>
+          <input id="current-station" type="text" class="small" placeholder="例: 渋谷">
+        </div>
+      </div>
+      <label for="alert-minutes">出発の何分前に知らせるか</label>
+      <select id="alert-minutes" class="small">
+        <option value="10">10 分前</option>
+        <option value="15" selected>15 分前</option>
+        <option value="20">20 分前</option>
+        <option value="30">30 分前</option>
+      </select>
+      <div class="row">
+        <button id="btn-lasttrain-check" type="button">終電を調べてアラートをセット</button>
+        <button id="btn-lasttrain-clear" type="button">解除</button>
+      </div>
+      <p id="lasttrain-status" class="muted"></p>
+      <div id="lasttrain-result" class="note" hidden>
+        <p id="lasttrain-summary"></p>
+        <p id="lasttrain-countdown" class="mono"></p>
+      </div>
+    </fieldset>
+
     <div class="row">
       <button id="btn-set" class="primary">セット</button>
       <button id="btn-demo">10秒後に鳴らす</button>
@@ -108,6 +139,18 @@
 
 </main>
 
+<!-- 終電アラート。どの画面にいても上に重ねて出す。帰るかどうかは人が決める -->
+<div id="lasttrain-alert" class="overlay" hidden>
+  <div class="dialog">
+    <p class="eyebrow">🚃 終電が近づいています</p>
+    <p id="lasttrain-alert-text" class="lead"></p>
+    <div class="row">
+      <button id="btn-lasttrain-go" class="primary" type="button">今から帰る</button>
+      <button id="btn-lasttrain-stay" type="button">今日は帰らない</button>
+    </div>
+  </div>
+</div>
+
 <!-- type="module" は file:// で CORS エラーになりうるので通常の script を順に読む -->
 <script src="js/utils.js"></script>
 <script src="js/store.js"></script>
@@ -115,5 +158,9 @@
 <script src="js/attention.js"></script>
 <script src="js/problems.js"></script>
 <script src="js/main.js"></script>
+<!-- config.js は各自が作る（js/config.example.js 参照）。無くてもアラーム本体は動く -->
+<script src="js/config.js"></script>
+<script src="js/odpt.js"></script>
+<script src="js/lasttrain.js"></script>
 </body>
 </html>

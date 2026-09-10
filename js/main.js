@@ -291,6 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const saved = Store.load();
   if (saved.alarm) Object.assign(state.alarm, saved.alarm);
   if (Array.isArray(saved.log)) state.log = saved.log;
+  if (saved.lastTrain) state.lastTrain = saved.lastTrain;
 
   $("#alarm-time").value = state.alarm.time;
   applyGenresToForm();

@@ -213,3 +213,30 @@ body[data-state="done"] .log li { border-color: rgba(30,36,48,.12); }
 #done h1 { font-size: 3.2rem; }
 #result { font-size: 1.9rem; font-weight: 700; }
 #weekly { font-size: 1.3rem; }
+
+/* ---------- 終電アラート ---------- */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+input.small, select.small {
+  width: 100%; padding: 12px 16px; font-size: 1.2rem; border: 1px solid var(--glass-line); border-radius: 12px;
+  background: rgba(40,44,90,.75); color: #fff;
+}
+select.small { max-width: 240px; }
+select.small option { color: var(--fg); }
+#lasttrain-status.error { color: #ffb3a7; }
+#lasttrain-result p { margin: 4px 0; }
+#lasttrain-countdown { font-size: 1.1rem; letter-spacing: .05em; }
+.overlay {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: rgba(10,12,30,.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 24px;
+}
+.overlay .dialog {
+  max-width: 720px; width: 100%; padding: 36px 44px; border-radius: 24px; color: #fff;
+  background: linear-gradient(160deg, #2a2f6b, #1a1f4a); border: 1px solid var(--glass-line);
+  box-shadow: 0 30px 80px rgba(0,0,0,.5);
+  animation: rise .5s cubic-bezier(.2,.8,.2,1);
+}
+.overlay .eyebrow { color: #ffb26b; animation: blink 1s steps(2, start) infinite; margin: 0 0 12px; }
+.overlay .lead { color: #fff; margin-bottom: 8px; }
+.overlay[hidden] { display: none; }
