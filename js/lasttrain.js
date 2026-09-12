@@ -59,11 +59,17 @@ const LastTrain = {
   // ---------- 監視 ----------
 
   async check() {
+    if (!navigator.onLine) {
+      this.showError("終電の検索には通信が必要です。保存済みの結果は最新の運行情報ではありません。");
+      return;
+    }
     const home = $("#home-station").value;
     if (!home.trim()) {
       this.showError("自宅の最寄り駅を入力してください");
       return;
     }
+    Sound.init();
+    Attention.requestPermission();
     this.settings.homeStation = home.trim();
     this.settings.alertMinutes = Number($("#alert-minutes").value) || 15;
     persist();
@@ -85,6 +91,7 @@ const LastTrain = {
       if (plan.noRoute) throw new Error(`${origin} → ${home} は乗り換え 1 回までの経路が見つかりません`);
       if (!plan.walkOnly && plan.leaveAt <= Date.now()) throw new Error(`今日の終電（${this.hhmm(plan.leaveAt)} ${plan.originStation} 発）はもう出ています`);
       this.settings.plan = plan;
+      $("#train-settings").open = false;
       persist();
       this.render();
       if (!plan.walkOnly) this.watch();
@@ -188,13 +195,19 @@ const LastTrain = {
   render() {
     const p = this.settings.plan;
     const result = $("#lasttrain-result");
+    const home = this.settings.homeStation;
+    $("#train-route").textContent = p && !p.walkOnly ? `${p.originStation} → ${p.homeStation}` : home ? `出発駅を選択 → ${home}` : "帰る時間を決める";
+    $("#train-status").textContent = !p ? "未セット" : p.walkOnly ? "電車は不要" : p.decision ? "確認済み" : "セット中";
+    $("#btn-lasttrain-clear").hidden = !p;
     if (!p) {
+      $("#lasttrain-checked").textContent = "";
       result.hidden = true;
       this.setStatus("");
       return;
     }
     result.hidden = false;
     if (p.walkOnly) {
+      $("#lasttrain-checked").textContent = "";
       this.setStatus(`${p.homeStation}駅の近くにいます。電車は不要です`);
       $("#lasttrain-summary").textContent = "";
       $("#lasttrain-countdown").textContent = "";
@@ -202,18 +215,20 @@ const LastTrain = {
     }
     this.setStatus(p.decision === "going" ? "帰ることにしました" : p.decision === "staying" ? "今日は帰らないことにしました" : `${this.hhmm(p.leaveAt - this.settings.alertMinutes * 60000)} に知らせます`);
     $("#lasttrain-summary").textContent = this.summary();
+    $("#lasttrain-checked").textContent = p.checkedAt ? `検索日時: ${new Date(p.checkedAt).toLocaleString("ja-JP")}（保存済みの時刻表検索結果）` : "";
   },
 
   init() {
     const s = this.settings;
     $("#home-station").value = s.homeStation || "";
+    $("#train-settings").open = !s.plan;
     $("#alert-minutes").value = String(s.alertMinutes || 15);
     $("#btn-lasttrain-check").addEventListener("click", () => this.check());
     $("#btn-lasttrain-clear").addEventListener("click", () => this.clear());
     $("#btn-lasttrain-go").addEventListener("click", () => this.dismiss(true));
     $("#btn-lasttrain-stay").addEventListener("click", () => this.dismiss(false));
     this.render();
-    if (!s.plan && !ODPT.token()) this.setStatus("トークン未設定のため都営線のみ対応です（js/config.js に ODPT のトークンを貼ると首都圏の JR・メトロ・私鉄が使えます）");
+    if (!s.plan && !ODPT.token()) this.setStatus("現在は都営線のみ検索できます。京王線などの対応は準備中です。");
     // リロードしても、まだ判断していない計画が残っていれば監視を続ける
     if (s.plan && !s.plan.walkOnly && !s.plan.decision && s.plan.leaveAt > Date.now()) this.watch();
   },

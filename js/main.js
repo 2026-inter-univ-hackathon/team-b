@@ -20,6 +20,23 @@ let targetAt = null;
 
 function setScreen(name) {
   document.body.dataset.state = name;
+  renderAlarmCard();
+}
+
+// 設定と監視を同じカードに置く。監視中の変更は解除後に行う。
+function renderAlarmCard() {
+  const armed = document.body.dataset.state === "armed";
+  $("#alarm-status").textContent = armed ? "セット中" : "未セット";
+  $("#alarm-summary-time").textContent = state.alarm.time;
+  const names = { math: "数学", physics: "物理", code: "プログラミング" };
+  const sounds = { beep: "ビープ", siren: "サイレン", chime: "学校のチャイム", clock: "目覚まし時計" };
+  $("#alarm-summary-options").textContent = `${state.alarm.genres.map(g => names[g]).filter(Boolean).join("・") || "全ジャンル"} ／ ${Problems.LEVEL_LABELS[state.alarm.difficulty] || "ふつう"} ／ ${sounds[state.alarm.sound] || "ビープ"}`;
+  $("#alarm-fields").querySelectorAll("input, button").forEach(el => { el.disabled = armed; });
+  $("#btn-demo").disabled = armed;
+  $("#btn-check-beep").disabled = armed;
+  if (armed) $("#alarm-settings").open = false;
+  $("#home-log").replaceChildren(...[...$("#log").children].map(el => el.cloneNode(true)));
+  if (!state.log.length) $("#home-log").textContent = "まだ起床の記録はありません";
 }
 
 function persist() {
@@ -147,6 +164,8 @@ function disarm() {
   stopWatching();
   state.alarm.armed = false;
   persist();
+  $("#missed").hidden = true;
+  $("#armed-note").hidden = true;
   setScreen("setup");
 }
 
@@ -297,6 +316,17 @@ document.addEventListener("DOMContentLoaded", () => {
   applyGenresToForm();
   applyDifficultyToForm();
   applySoundToForm();
+  renderLog();
+  renderAlarmCard();
+  $("#alarm-settings").open = !saved.alarm;
+  $("#alarm-fields").addEventListener("change", () => {
+    state.alarm.time = $("#alarm-time").value || "07:30";
+    state.alarm.genres = selectedGenres();
+    state.alarm.difficulty = selectedDifficulty();
+    state.alarm.sound = selectedSound();
+    persist();
+    renderAlarmCard();
+  });
 
   $("#btn-set").addEventListener("click", arm);
   $("#btn-demo").addEventListener("click", armDemo);

@@ -2,8 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>絶起ヘルパー</title>
+<meta name="theme-color" content="#1c2245">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="絶起ヘルパー">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-state="setup">
@@ -11,22 +17,19 @@
 
   <!-- 待機: 時刻設定 -->
   <section id="setup">
-    <!-- 装飾: 薄く浮かぶ数式。読み上げ対象にしない -->
-    <div class="formulas" aria-hidden="true">
-      <span style="--x:64%; --y:6%; --r:-8deg; --s:2.6">∫₀^∞ e^(−x²) dx = √π / 2</span>
-      <span style="--x:78%; --y:30%; --r:6deg; --s:1.8">det(A) = ad − bc</span>
-      <span style="--x:58%; --y:44%; --r:-4deg; --s:1.5">f′(x) = lim<sub>h→0</sub> (f(x+h) − f(x)) / h</span>
-      <span style="--x:70%; --y:62%; --r:10deg; --s:2.2">e^(iπ) + 1 = 0</span>
-      <span style="--x:52%; --y:78%; --r:-12deg; --s:1.6">v = v₀ + at</span>
-      <span style="--x:82%; --y:84%; --r:4deg; --s:2.4">Σ<sub>k=1</sub><sup>n</sup> k = n(n+1)/2</span>
-      <span style="--x:88%; --y:50%; --r:-6deg; --s:3">∂</span>
-      <span style="--x:46%; --y:20%; --r:8deg; --s:1.4">0b1011010 = 90</span>
-      <span style="--x:62%; --y:92%; --r:0deg; --s:1.3">for i in range(1, n): s += i*i</span>
-    </div>
-    <p class="eyebrow mono">ZEKKI HELPER · v0.2 · ∫ wake dt = 1</p>
-    <h1>絶起ヘルパー</h1>
-    <p class="lead">理系の問題を解かないと止まらない目覚まし</p>
-
+    <header class="home-header">
+      <p class="eyebrow mono">ZEKKI HELPER</p>
+      <h1>絶起ヘルパー</h1>
+      <p class="lead">明日の朝と、今日の帰り道。</p>
+    </header>
+    <p id="network-status" class="note" role="status" hidden></p>
+    <article class="feature-card" aria-labelledby="alarm-heading">
+      <div class="card-heading"><h2 id="alarm-heading">目覚まし</h2><span id="alarm-status" class="badge">未セット</span></div>
+      <p id="alarm-summary-time" class="summary-time">07:30</p>
+      <p id="alarm-summary-options" class="muted"></p>
+      <details id="alarm-settings" open>
+        <summary>時刻・問題・音を変更</summary>
+        <div id="alarm-fields">
     <label for="alarm-time">鳴らす時刻</label>
     <input id="alarm-time" type="time" value="07:30">
 
@@ -55,57 +58,15 @@
       <p class="muted">どの音も 30 秒ごとに少しずつ大きくなります</p>
     </fieldset>
 
-    <fieldset id="lasttrain">
-      <legend>終電アラート</legend>
-      <p class="muted">自宅の最寄り駅以外にいるとき、そこから帰る終電を調べて、出発すべき時刻の少し前に知らせます。</p>
-      <div class="grid2">
-        <div>
-          <label for="home-station">自宅の最寄り駅</label>
-          <input id="home-station" type="text" class="small" placeholder="例: 吉祥寺">
         </div>
-        <div>
-          <label for="current-station">今いる駅（空欄なら現在地から探す）</label>
-          <input id="current-station" type="text" class="small" placeholder="例: 渋谷">
-        </div>
+      </details>
+      <div id="alarm-actions" class="row">
+        <button id="btn-set" class="primary">セットする</button>
       </div>
-      <label for="alert-minutes">出発の何分前に知らせるか</label>
-      <select id="alert-minutes" class="small">
-        <option value="10">10 分前</option>
-        <option value="15" selected>15 分前</option>
-        <option value="20">20 分前</option>
-        <option value="30">30 分前</option>
-      </select>
-      <div class="row">
-        <button id="btn-lasttrain-check" type="button">終電を調べてアラートをセット</button>
-        <button id="btn-lasttrain-clear" type="button">解除</button>
-      </div>
-      <p id="lasttrain-status" class="muted"></p>
-      <div id="lasttrain-result" class="note" hidden>
-        <p id="lasttrain-summary"></p>
-        <p id="lasttrain-countdown" class="mono"></p>
-      </div>
-    </fieldset>
-
-    <div class="row">
-      <button id="btn-set" class="primary">セット</button>
-      <button id="btn-demo">10秒後に鳴らす</button>
-    </div>
-
-    <details class="check">
-      <summary>動作確認（開発用）</summary>
-      <div class="row">
-        <button id="btn-check-beep">選んだ音を鳴らす</button>
-        <button id="btn-check-storage">localStorage を確認</button>
-      </div>
-      <p id="check-result" class="muted">未確認</p>
-    </details>
-  </section>
-
-  <!-- 監視中: カウントダウン -->
-  <section id="armed">
-    <div id="now" class="clock">--:--:--</div>
+  <div id="armed">
+    <div id="now" class="mono">--:--:--</div>
     <p id="countdown" class="lead">-- まであと --</p>
-    <p class="muted">タブを前面にしたまま寝てください。バックグラウンドだと数十秒遅れることがあります。</p>
+    <p class="muted">音を鳴らすため、この画面を開いたままにしてください。</p>
     <p id="missed" class="note" hidden>
       <span id="missed-text"></span>
       <button id="btn-ring-now" type="button">今すぐ鳴らす</button>
@@ -114,7 +75,61 @@
     <p id="armed-note" class="note" hidden>
       リロード後は音の許可が切れています。<button id="btn-enable-sound" type="button">音を有効にする</button> を押してください。
     </p>
-    <button id="btn-disarm">解除</button>
+    <button id="btn-disarm">目覚ましを解除</button>
+  </div>
+
+    </article>
+    <article id="lasttrain" class="feature-card" aria-labelledby="train-heading">
+      <div class="card-heading"><h2 id="train-heading">終電アラート</h2><span id="train-status" class="badge">未セット</span></div>
+      <p id="train-route" class="route-summary">帰る時間を決める</p>
+      <details id="train-settings" open><summary>駅・通知時刻を変更</summary>
+      <p class="muted">自宅の最寄り駅以外にいるとき、そこから帰る終電を調べて、出発すべき時刻の少し前に知らせます。</p>
+      <div class="grid2">
+        <div>
+          <label for="home-station">自宅の最寄り駅</label>
+          <input id="home-station" type="text" class="small" placeholder="例: 国領">
+        </div>
+        <div>
+          <label for="current-station">今いる駅（空欄なら現在地から探す）</label>
+          <input id="current-station" type="text" class="small" placeholder="例: 調布">
+        </div>
+      </div>
+      <label for="alert-minutes">列車の発車の何分前に知らせるか</label>
+      <select id="alert-minutes" class="small">
+        <option value="10">10 分前</option>
+        <option value="15" selected>15 分前</option>
+        <option value="20">20 分前</option>
+        <option value="30">30 分前</option>
+      </select>
+      </details>
+      <div class="row">
+        <button id="btn-lasttrain-check" type="button">終電を調べてセット</button>
+        <button id="btn-lasttrain-clear" type="button">解除</button>
+      </div>
+      <p id="lasttrain-status" class="muted" role="status"></p>
+      <div id="lasttrain-result" class="note" hidden>
+        <p id="lasttrain-summary"></p>
+        <p id="lasttrain-checked" class="muted"></p>
+        <p id="lasttrain-countdown" class="mono"></p>
+      </div>
+    </article>
+    <details class="history"><summary>起床の記録を見る</summary><ul id="home-log" class="log"></ul></details>
+    <details id="pwa-info" class="history" hidden>
+      <summary>アプリとして使う</summary>
+      <p id="pwa-status" class="muted" role="status"></p>
+      <button id="btn-install" type="button" hidden>ホーム画面に追加</button>
+      <p class="muted">iPhoneでは共有メニューから「ホーム画面に追加」。ほかのブラウザではメニューのインストール項目から追加できます。</p>
+      <p class="muted">アラームを使う間は画面を開いたままにしてください。画面ロック中やアプリを閉じた後の通知・音は保証できません。</p>
+    </details>
+    <details class="check">
+      <summary>動作確認</summary>
+      <div class="row">
+        <button id="btn-demo">10秒後に鳴らす</button>
+        <button id="btn-check-beep">選んだ音を鳴らす</button>
+        <button id="btn-check-storage">localStorage を確認</button>
+      </div>
+      <p id="check-result" class="muted">未確認</p>
+    </details>
   </section>
 
   <!-- 鳴動: 問題 -->
@@ -134,7 +149,7 @@
     <p id="result" class="lead"></p>
     <p id="weekly" class="muted"></p>
     <ul id="log" class="log"></ul>
-    <button id="btn-again" class="primary">明日もセット</button>
+    <button id="btn-again" class="primary">ホームに戻る</button>
   </section>
 
 </main>
@@ -162,5 +177,6 @@
 <script src="js/config.js"></script>
 <script src="js/odpt.js"></script>
 <script src="js/lasttrain.js"></script>
+<script src="js/pwa.js"></script>
 </body>
 </html>
