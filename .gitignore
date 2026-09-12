@@ -11,3 +11,4 @@
 # 念のため
 node_modules/
 *.log
+js/config.js

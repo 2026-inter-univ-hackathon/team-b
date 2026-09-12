@@ -213,3 +213,82 @@ body[data-state="done"] .log li { border-color: rgba(30,36,48,.12); }
 #done h1 { font-size: 3.2rem; }
 #result { font-size: 1.9rem; font-weight: 700; }
 #weekly { font-size: 1.3rem; }
+
+/* ---------- 終電アラート ---------- */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+input.small, select.small {
+  width: 100%; padding: 12px 16px; font-size: 1.2rem; border: 1px solid var(--glass-line); border-radius: 12px;
+  background: rgba(40,44,90,.75); color: #fff;
+}
+select.small { max-width: 240px; }
+select.small option { color: var(--fg); }
+#lasttrain-status.error { color: #ffb3a7; }
+#lasttrain-result p { margin: 4px 0; }
+#lasttrain-countdown { font-size: 1.1rem; letter-spacing: .05em; }
+.overlay {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: rgba(10,12,30,.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 24px;
+}
+.overlay .dialog {
+  max-width: 720px; width: 100%; padding: 36px 44px; border-radius: 24px; color: #fff;
+  background: linear-gradient(160deg, #2a2f6b, #1a1f4a); border: 1px solid var(--glass-line);
+  box-shadow: 0 30px 80px rgba(0,0,0,.5);
+  animation: rise .5s cubic-bezier(.2,.8,.2,1);
+}
+.overlay .eyebrow { color: #ffb26b; animation: blink 1s steps(2, start) infinite; margin: 0 0 12px; }
+.overlay .lead { color: #fff; margin-bottom: 8px; }
+.overlay[hidden] { display: none; }
+
+/* ホーム: 2つの機能を同じ場所で操作する */
+html { font-size: 16px; }
+body { padding: 32px 20px; }
+main { max-width: 720px; }
+#setup { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; overflow: visible; }
+#setup::before, #setup h1::after { display: none; }
+#setup h1 { font-size: 2rem; }
+.home-header { margin-bottom: 24px; }
+.home-header .lead { font-size: 1rem; margin-bottom: 0; }
+.feature-card { padding: 24px; margin-bottom: 16px; border: 1px solid var(--glass-line); border-radius: 20px; background: #1c2245; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h2 { font-size: 1.1rem; margin: 0; }
+.badge { border-radius: 20px; background: #323958; padding: 4px 12px; font-size: .8rem; white-space: nowrap; }
+.summary-time { font-size: 3.4rem; line-height: 1.2; margin: 12px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.route-summary { font-size: 1.6rem; margin: 16px 0; font-weight: 600; }
+.feature-card .muted { font-size: .9rem; }
+summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
+summary:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+fieldset { border-radius: 12px; padding: 12px 16px; margin: 16px 0; box-shadow: none; }
+fieldset label { font-size: 1rem; margin-right: 16px; }
+button, button.primary { min-height: 44px; font-size: 1rem; padding: 12px 20px; }
+button:disabled { opacity: .5; cursor: default; transform: none; }
+button.primary { color: #24160c; box-shadow: none; }
+.row { margin-top: 16px; gap: 12px; }
+body[data-state="armed"] #setup { display: block; }
+#armed { display: none; text-align: left; padding: 12px 0 0; }
+body[data-state="armed"] #armed { display: block; }
+body[data-state="armed"] #alarm-actions { display: none; }
+#countdown { font-size: 1.1rem; border: 0; background: none; padding: 0; margin: 4px 0; }
+#armed #btn-disarm { margin-top: 12px; }
+#armed .muted { color: rgba(255,255,255,.7); }
+.history, .check { margin: 16px 0; padding: 0; }
+[hidden] { display: none !important; }
+@media (max-width: 480px) {
+  body { padding: 20px 12px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  body::after { width: 80px; height: 80px; opacity: .35; }
+  .feature-card { padding: 18px; }
+  .row > button { flex: 1 1 auto; }
+  input.small, select.small { font-size: 1rem; }
+  #done { padding: 24px; }
+  #done h1 { font-size: 2rem; }
+  .question { font-size: 1.7rem; padding: 24px; }
+  .question pre { font-size: 1.2rem; }
+  #answer-form { flex-wrap: wrap; }
+  #answer-form input { min-width: 0; font-size: 1.4rem; }
+  .overlay { padding: 12px; }
+  .overlay .dialog { padding: 24px; max-height: 90dvh; overflow-y: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
