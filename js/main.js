@@ -301,13 +301,64 @@ function renderMatrix(rows) {
   return el;
 }
 
+// 数式は通常文と分け、幅を超えるときは式全体を横にスクロールできるようにする。
+function renderMathProblem(container, text) {
+  const expression = document.createElement("span");
+  expression.className = "math-expression";
+  expression.tabIndex = 0;
+  expression.setAttribute("role", "group");
+  expression.setAttribute("aria-label", "数式（長い場合は横にスクロールできます）");
+  if (typeof text === "string") {
+    // 問いかけは式の外に置き、通常の文章として折り返す。
+    const parts = text.match(/^(.*?)( のとき .*| の x は？| は？)$/);
+    expression.textContent = parts ? parts[1] : text;
+    container.appendChild(expression);
+    if (parts) container.appendChild(document.createTextNode(parts[2]));
+    return;
+  }
+  if (text.matrix) {
+    expression.appendChild(renderMatrix(text.matrix));
+  } else if (text.integral) {
+    const { lower, upper, integrand } = text.integral;
+    const integral = document.createElement("span");
+    integral.className = "integral-symbol";
+    integral.setAttribute("role", "img");
+    integral.setAttribute("aria-label", `${lower}から${upper}までの定積分`);
+    for (const [tag, className, value] of [["span", "integral-sign", "∫"], ["sup", "integral-upper", upper], ["sub", "integral-lower", lower]]) {
+      const part = document.createElement(tag);
+      part.className = className;
+      part.textContent = String(value);
+      part.setAttribute("aria-hidden", "true");
+      integral.appendChild(part);
+    }
+    expression.appendChild(integral);
+    expression.appendChild(document.createTextNode(` (${integrand}) dx`));
+  } else if (text.combination) {
+    const { n, k } = text.combination;
+    const combination = document.createElement("span");
+    combination.setAttribute("role", "img");
+    combination.setAttribute("aria-label", `${n}個から${k}個を選ぶ組合せ`);
+    for (const [tag, value] of [["sub", n], ["span", "C"], ["sub", k]]) {
+      const part = document.createElement(tag);
+      part.textContent = String(value);
+      part.setAttribute("aria-hidden", "true");
+      combination.appendChild(part);
+    }
+    expression.appendChild(combination);
+  }
+  container.appendChild(expression);
+  if (text.suffix) container.appendChild(document.createTextNode(text.suffix));
+}
+
 function showProblem() {
   session.problem = Problems.generate(state.alarm.genres, currentLevel(), session.problem && session.problem.type);
   session.attempts += 1;
   const q = $("#question");
   q.textContent = "";
   const text = session.problem.text;
-  if (typeof text === "string") {
+  if (session.problem.genre === "math") {
+    renderMathProblem(q, text);
+  } else if (typeof text === "string") {
     q.textContent = text;
   } else if (text.matrix) {
     q.appendChild(renderMatrix(text.matrix));

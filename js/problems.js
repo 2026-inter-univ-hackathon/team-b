@@ -96,13 +96,13 @@ const Problems = (() => {
     if (level === "hard") {
       const d = rand(1, 3);
       return {
-        text: `∫₀^${k} (${3 * d}x² + ${2 * a}x + ${b}) dx は？`,
+        text: { integral: { lower: 0, upper: k, integrand: `${3 * d}x² + ${2 * a}x + ${b}` }, suffix: "は？" },
         answer: d * k * k * k + a * k * k + b * k,
         genre: "math",
       };
     }
     return {
-      text: `∫₀^${k} (${2 * a}x + ${b}) dx は？`,
+      text: { integral: { lower: 0, upper: k, integrand: `${2 * a}x + ${b}` }, suffix: "は？" },
       answer: a * k * k + b * k,
       genre: "math",
     };
@@ -129,7 +129,7 @@ const Problems = (() => {
     let c = 1;
     for (let i = 1; i <= k; i++) c = (c * (n - k + i)) / i;
     return {
-      text: `${n}C${k}（${n} 個から ${k} 個を選ぶ組合せの数）は？`,
+      text: { combination: { n, k }, suffix: `（${n} 個から ${k} 個を選ぶ組合せの数）は？` },
       answer: c,
       genre: "math",
     };
