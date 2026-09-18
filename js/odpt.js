@@ -1,7 +1,7 @@
 // 公共交通オープンデータセンター（ODPT）から時刻表を取り、終電を自分で探す。
 // 経路探索 API が無いので、路線の駅並び順と列車時刻表だけで「乗り換えなし／1回」の経路を組む。
 //
-// トークンあり: api.odpt.org（JR 東日本・東京メトロ・都営・首都圏私鉄）
+// 通常キー: api.odpt.org（メトロ・都営）。チャレンジキー: api-challenge.odpt.org（JR・私鉄）。
 // トークンなし: api-public.odpt.org の公開ダンプ（都営 6 路線のみ。動作確認用）
 //
 // データの形（実測）:
@@ -13,13 +13,18 @@
 
 const ODPT = {
   API: "https://api.odpt.org/api/v4",
+  CHALLENGE: "https://api-challenge.odpt.org/api/v4",
   PUBLIC: "https://api-public.odpt.org/api/v4",
   cache: {},
 
-  token() {
-    const t = typeof window !== "undefined" && window.APP_CONFIG && window.APP_CONFIG.ODPT_ACCESS_TOKEN;
+  token(key = "ODPT_ACCESS_TOKEN") {
+    const t = typeof window !== "undefined" && window.APP_CONFIG && window.APP_CONFIG[key];
     if (!t || t.startsWith("ここに")) return null;
     return t;
+  },
+
+  hasToken() {
+    return !!(this.token() || this.token("ODPT_CHALLENGE_ACCESS_TOKEN"));
   },
 
   async getJson(url) {
@@ -31,9 +36,31 @@ const ODPT = {
   // type は "odpt:Railway" など。params は完全一致で絞り込む
   async fetchType(type, params = {}) {
     const t = this.token();
-    if (t) {
-      const q = new URLSearchParams({ ...params, "acl:consumerKey": t });
-      return this.getJson(`${this.API}/${type}?${q}`);
+    const challenge = this.token("ODPT_CHALLENGE_ACCESS_TOKEN");
+    if (t || challenge) {
+      let sources = [[this.API, t], [this.CHALLENGE, challenge]].filter(([, key]) => key);
+      const operator = (params["odpt:operator"] || params["odpt:railway"] || "").split(":")[1]?.split(".")[0];
+      if (operator && t && challenge) {
+        const regular = operator === "TokyoMetro" || operator === "Toei";
+        sources = sources.filter(([base]) => base === (regular ? this.API : this.CHALLENGE));
+      }
+      const lists = await Promise.all(sources.map(async ([base, key]) => {
+        const q = new URLSearchParams({ ...params, "acl:consumerKey": key });
+        const rows = await this.getJson(`${base}/${type}?${q}`);
+        // APIの上限で欠けた時刻表を「終電」として表示しない。
+        if (rows.length >= 1000 && type === "odpt:TrainTimetable") {
+          throw new Error("列車時刻表が取得上限に達しました。この路線の終電は確定できません。");
+        }
+        return rows;
+      }));
+      const merged = new Map();
+      for (const row of lists.flat()) {
+        const id = row["owl:sameAs"], previous = merged.get(id);
+        // 別APIには乗換先参照用の駅順が空の路線もある。完全な情報を残す。
+        if (previous && (previous["odpt:stationOrder"] || []).length > (row["odpt:stationOrder"] || []).length) continue;
+        merged.set(id, { ...previous, ...row });
+      }
+      return [...merged.values()];
     }
     // 公開ダンプは絞り込みが効かないので、1 回だけ全件を読んで手元で絞る
     const key = `dump:${type}`;
@@ -45,8 +72,20 @@ const ODPT = {
   // 路線と駅は一度に全部読む（数 MB 以下）。以後の駅名検索・最寄り駅は手元で済む
   async network() {
     if (!this.cache.network) {
-      this.cache.network = Promise.all([this.fetchType("odpt:Railway"), this.fetchType("odpt:Station")])
-        .then(([railways, stations]) => LastTrainSearch.buildNetwork(railways, stations));
+      this.cache.network = (async () => {
+        const railways = await this.fetchType("odpt:Railway");
+        if (!this.hasToken()) return LastTrainSearch.buildNetwork(railways, await this.fetchType("odpt:Station"));
+        // まず事業者ごとに取得し、1000件に達した事業者だけ路線ごとに分ける。
+        const stations = [];
+        for (const operator of new Set(railways.map((rail) => rail["odpt:operator"]).filter(Boolean))) {
+          const rows = await this.fetchType("odpt:Station", { "odpt:operator": operator });
+          if (rows.length < 1000) { stations.push(...rows); continue; }
+          for (const rail of railways.filter((rail) => rail["odpt:operator"] === operator)) {
+            stations.push(...await this.fetchType("odpt:Station", { "odpt:railway": rail["owl:sameAs"] }));
+          }
+        }
+        return LastTrainSearch.buildNetwork(railways, stations);
+      })().catch((error) => { delete this.cache.network; throw error; });
     }
     return this.cache.network;
   },
@@ -181,7 +220,10 @@ const LastTrainSearch = {
           continue;
         }
         if (st === toId) {
-          const arr = this.toMin(o["odpt:arrivalTime"] || o["odpt:departureTime"]);
+          const time = o["odpt:arrivalTime"] || o["odpt:departureTime"];
+          // 通過駅など、時刻のないエントリーは到着として扱わない。
+          if (!time) break;
+          const arr = this.toMin(time);
           if (arr <= limit && arr >= dep && (!best || dep > best.dep)) best = { dep, arr, train: t };
           break;
         }

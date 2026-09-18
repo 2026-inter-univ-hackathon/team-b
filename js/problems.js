@@ -11,6 +11,39 @@ const Problems = (() => {
   const byLevel = (level, easy, normal, hard) =>
     level === "easy" ? easy : level === "hard" ? hard : normal;
 
+  // 専門知識を使わず、画面を見て考える問題。文字列は毎回生成する。
+  function symbolCount(level) {
+    const symbols = byLevel(level, ["○", "△"], ["○", "△", "□"], ["○", "◎", "△", "□"]);
+    const target = pick(symbols);
+    const length = byLevel(level, 6, 12, 20);
+    const row = Array.from({ length }, () => pick(symbols));
+    return { text: `「${target}」は何個ありますか？\n${row.join(" ")}`,
+      answer: row.filter(x => x === target).length, genre: "attention" };
+  }
+
+  function digitPosition(level) {
+    const length = byLevel(level, 4, 7, 10);
+    const row = Array.from({ length }, () => rand(0, 9));
+    const position = rand(1, length);
+    const right = level !== "easy" && Math.random() < 0.5;
+    return { text: `${right ? "右" : "左"}から${position}番目の数字は？\n${row.join(" ")}`,
+      answer: row[right ? length - position : position - 1], genre: "attention" };
+  }
+
+  function arithmetic(level) {
+    const a = rand(2, 9), b = rand(2, 9), c = rand(2, 9), d = rand(2, 9);
+    if (level === "hard") return { text: `(${a} + ${b}) × ${c} − ${d} は？`, answer: (a + b) * c - d, genre: "math" };
+    if (level === "normal") return { text: `${a} + ${b} × ${c} は？`, answer: a + b * c, genre: "math" };
+    return { text: `${a} + ${b} は？`, answer: a + b, genre: "math" };
+  }
+
+  function linearEquation(level) {
+    const x = rand(2, 9), a = rand(2, 5), b = rand(1, 9), c = rand(1, 4);
+    if (level === "hard") return { text: `${a + c}x + ${b} = ${c}x + ${a * x + b} の x は？`, answer: x, genre: "math" };
+    if (level === "normal") return { text: `${a}x + ${b} = ${a * x + b} の x は？`, answer: x, genre: "math" };
+    return { text: `x + ${b} = ${x + b} の x は？`, answer: x, genre: "math" };
+  }
+
   // ---------- 数学 ----------
 
   // f(x) = ax² + bx + c の x=k における微分係数 f'(k) = 2ak + b
@@ -33,10 +66,10 @@ const Problems = (() => {
     };
   }
 
-  // 行列式。easy は 2×2、normal は 2×2 か 3×3、hard は 3×3 で成分の範囲を広げる。行列式が 0 なら引き直す
+  // 行列式。normal は 2×2、hard は 3×3。easy の出題プールには含めない。行列式が0なら引き直す
   // text は { matrix: [[...], ...], suffix } の形で返し、app.js が縦書きの括弧つきで描画する
   function determinant(level) {
-    const size = byLevel(level, 2, Math.random() < 0.5 ? 2 : 3, 3);
+    const size = byLevel(level, 2, 2, 3);
     const lo = byLevel(level, 0, size === 3 ? -3 : -5, -5);
     const hi = byLevel(level, 4, size === 3 ? 3 : 5, 5);
     let m, det;
@@ -299,7 +332,7 @@ const Problems = (() => {
     const len = byLevel(level, 4, rand(5, 6), rand(6, 8));
     const arr = Array.from({ length: len }, () => rand(1, 9));
     const i = byLevel(level, rand(0, 1), rand(0, len - 2), rand(0, len - 3));
-    const j = rand(i + 1, len);
+    const j = rand(Math.min(len, i + byLevel(level, 1, 2, 3)), len);
     // hard は j を末尾からの負数で書く（j = len のときは省略記法）
     const jText = level === "hard" ? (j === len ? "" : String(j - len)) : String(j);
     return {
@@ -310,7 +343,8 @@ const Problems = (() => {
   }
 
   const generators = {
-    math: [derivative, determinant, integral, dotProduct, combination],
+    attention: [symbolCount, digitPosition],
+    math: [arithmetic, linearEquation, derivative, determinant, integral, dotProduct, combination],
     physics: [uniformAcceleration, kineticEnergy, ohm, freeFall],
     code: [loopSum, bitwise, intDiv, recursion, binaryLiteral, sliceSum],
   };
@@ -325,11 +359,20 @@ const Problems = (() => {
   }
 
   // 指定ジャンル群からランダムに1問生成する。ジャンルが空なら全ジャンルから
-  function generate(genres, level = "normal") {
+  function generate(genres, level = "normal", previousType = null) {
+    if (!LEVELS.includes(level)) level = "normal";
     const keys = (genres && genres.length) ? genres : Object.keys(generators);
-    const pool = keys.flatMap((g) => generators[g] || []);
-    if (pool.length === 0) return derivative(level);
-    return pick(pool)(level);
+    // 「やさしい」では微積分・行列・再帰を出さず、一段の処理に絞る。
+    const easy = { attention: generators.attention, math: [arithmetic, linearEquation], physics: [ohm, freeFall], code: [intDiv, binaryLiteral] };
+    const source = level === "easy" ? easy : generators;
+    const pool = keys.flatMap(g => source[g] || []);
+    const candidates = pool.filter(fn => fn.name !== previousType);
+    const generator = pick(candidates.length ? candidates : pool.length ? pool : generators.attention);
+    const problem = generator(level);
+    if (level === "easy" && problem.genre === "physics") {
+      problem.text += generator === ohm ? "（電圧 = 電流 × 抵抗）" : "（速度 = 重力加速度 × 時間）";
+    }
+    return { ...problem, type: generator.name };
   }
 
   // 入力を正規化して整数として解釈する。解釈できなければ null

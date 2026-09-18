@@ -5,4 +5,6 @@ window.APP_CONFIG = {
   // 公共交通オープンデータセンター（https://developer.odpt.org/）で登録すると発行されるアクセストークン。
   // 未設定でも都営線だけは動く（公開ダンプを使う）。
   ODPT_ACCESS_TOKEN: "ここに ODPT のアクセストークンを貼る",
+  // チャレンジ登録後の専用キー。通常キーとは別に設定する（JR・京王など）。
+  ODPT_CHALLENGE_ACCESS_TOKEN: "ここにチャレンジ用のアクセストークンを貼る",
 };
