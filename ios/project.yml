@@ -17,7 +17,10 @@ targets:
   ZekkiHelper:
     type: application
     platform: iOS
-    sources: [ZekkiHelper]
+    sources:
+      - path: ZekkiHelper
+      - path: ../js/problems.js
+        buildPhase: resources
     info:
       path: ZekkiHelper/Info.plist
       properties:

@@ -18,50 +18,112 @@
   <!-- 待機: 時刻設定 -->
   <section id="setup">
     <header class="home-header">
+      <span class="header-moon" aria-hidden="true"></span>
       <p class="eyebrow mono">ZEKKI HELPER</p>
-      <h1>絶起ヘルパー</h1>
-      <p class="lead">明日の朝と、今日の帰り道。</p>
+      <h1>絶起ヘルパー<span class="title-cursor" aria-hidden="true">_</span></h1>
+      <p class="lead">問題を解いて、二度寝を防ぐ目覚まし。</p>
     </header>
     <p id="network-status" class="note" role="status" hidden></p>
-    <article class="feature-card" aria-labelledby="alarm-heading">
-      <div class="card-heading"><h2 id="alarm-heading">目覚まし</h2><span id="alarm-status" class="badge">未セット</span></div>
-      <p id="alarm-summary-time" class="summary-time">07:30</p>
+    <nav class="feature-switch" aria-label="使う機能">
+      <button id="show-alarm" type="button" aria-pressed="true" aria-controls="alarm-panel">アラーム</button>
+      <button id="show-train" type="button" aria-pressed="false" aria-controls="lasttrain">終電アラート</button>
+    </nav>
+    <div id="feature-motion" class="feature-motion" aria-hidden="true">
+      <div class="train-runner">
+        <svg class="transition-train" viewBox="0 0 156 64" fill="none">
+          <path d="M6 48H146" stroke="#90A4D0" stroke-width="2" stroke-linecap="round"/>
+          <path d="M18 14H116C127 14 137 26 141 38V44H18V14Z" fill="#E9EEFF"/>
+          <path d="M18 35H139V42H18V35Z" fill="#F28B05"/>
+          <path d="M118 19C125 20 131 26 134 32H118V19Z" fill="#26345C"/>
+          <rect x="25" y="20" width="20" height="11" rx="2" fill="#26345C"/>
+          <rect x="52" y="20" width="20" height="11" rx="2" fill="#26345C"/>
+          <rect x="79" y="20" width="20" height="11" rx="2" fill="#26345C"/>
+          <path d="M64 13L72 5H87L95 13" stroke="#B5C4E9" stroke-width="3" stroke-linejoin="round"/>
+          <circle cx="38" cy="46" r="6" fill="#101329" stroke="#B5C4E9" stroke-width="2"/>
+          <circle cx="117" cy="46" r="6" fill="#101329" stroke="#B5C4E9" stroke-width="2"/>
+          <path d="M2 24H12M0 32H10" stroke="#F28B05" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <svg class="transition-clock" viewBox="0 0 100 84" fill="none">
+        <g class="clock-body">
+          <path d="M33 64L27 75M67 64L73 75" stroke="#D7E0F9" stroke-width="5" stroke-linecap="round"/>
+          <path d="M25 24L19 18C23 8 35 8 39 15L25 24ZM75 24L81 18C77 8 65 8 61 15L75 24Z" fill="#F8A226"/>
+          <circle cx="50" cy="43" r="27" fill="#EBEFFF" stroke="#F28B05" stroke-width="5"/>
+          <path d="M50 26V43L62 49" stroke="#26345C" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="50" cy="43" r="3" fill="#26345C"/>
+        </g>
+        <g class="clock-waves" stroke="#FFB646" stroke-width="3" stroke-linecap="round">
+          <path d="M12 21L8 28M7 13L2 22M88 21L92 28M93 13L98 22"/>
+        </g>
+      </svg>
+    </div>
+    <p id="background-alarm" class="muted" role="status" hidden></p>
+    <article id="alarm-panel" class="feature-card" aria-labelledby="alarm-heading">
+      <div class="card-heading"><h2 id="alarm-heading">次のアラーム</h2><span id="alarm-status" class="badge">未セット</span></div>
+      <p id="alarm-summary-time" class="summary-time mono">07:30</p>
+      <p id="alarm-schedule-summary" class="muted"></p>
       <p id="alarm-summary-options" class="muted"></p>
-      <details id="alarm-settings" open>
-        <summary>時刻・問題・音を変更</summary>
+      <div id="alarm-settings">
+        <h3>目覚ましの設定</h3>
         <div id="alarm-fields">
+    <label for="alarm-repeat">繰り返し</label>
+    <select id="alarm-repeat" class="small">
+      <option value="once">1回だけ</option>
+      <option value="daily">毎日</option>
+      <option value="weekly">曜日ごと</option>
+    </select>
+    <div id="alarm-common-time">
     <label for="alarm-time">鳴らす時刻</label>
-    <input id="alarm-time" type="time" value="07:30">
+    <input id="alarm-time" type="time" value="07:30" class="mono">
+    </div>
+    <fieldset id="alarm-weekdays" hidden>
+      <legend>鳴らす曜日と時刻</legend>
+      <p class="muted">チェックした曜日に繰り返します。</p>
+      <div class="weekday-row"><label><input id="alarm-day-1" type="checkbox" checked> 月曜日</label><input id="alarm-day-time-1" type="time" value="07:30" aria-label="月曜日に鳴らす時刻"></div>
+      <div class="weekday-row"><label><input id="alarm-day-2" type="checkbox" checked> 火曜日</label><input id="alarm-day-time-2" type="time" value="07:30" aria-label="火曜日に鳴らす時刻"></div>
+      <div class="weekday-row"><label><input id="alarm-day-3" type="checkbox" checked> 水曜日</label><input id="alarm-day-time-3" type="time" value="07:30" aria-label="水曜日に鳴らす時刻"></div>
+      <div class="weekday-row"><label><input id="alarm-day-4" type="checkbox" checked> 木曜日</label><input id="alarm-day-time-4" type="time" value="07:30" aria-label="木曜日に鳴らす時刻"></div>
+      <div class="weekday-row"><label><input id="alarm-day-5" type="checkbox" checked> 金曜日</label><input id="alarm-day-time-5" type="time" value="07:30" aria-label="金曜日に鳴らす時刻"></div>
+      <div class="weekday-row"><label><input id="alarm-day-6" type="checkbox"> 土曜日</label><input id="alarm-day-time-6" type="time" value="07:30" aria-label="土曜日に鳴らす時刻"></div>
+      <div class="weekday-row"><label><input id="alarm-day-0" type="checkbox"> 日曜日</label><input id="alarm-day-time-0" type="time" value="07:30" aria-label="日曜日に鳴らす時刻"></div>
+    </fieldset>
+    <p id="alarm-schedule-error" class="note" role="alert" hidden>鳴らす曜日を1つ以上選び、時刻を入力してください。</p>
+    <p class="muted">繰り返しは、正解して止めると次回を自動セットします。音を鳴らすには画面を開いたままにしてください。</p>
 
-    <fieldset id="genres">
+    <fieldset id="genres" class="choice-group genre-choices">
       <legend>出題ジャンル</legend>
-      <label><input type="checkbox" name="genre" value="math" checked> 数学</label>
+      <p class="muted">数学が苦手なら「文字・記号」だけでも使えます。未選択の場合は全ジャンルから出題します。</p>
+      <label><input type="checkbox" name="genre" value="attention" checked> 文字・記号</label>
+      <label><input type="checkbox" name="genre" value="math"> 数学</label>
       <label><input type="checkbox" name="genre" value="physics"> 物理</label>
-      <label><input type="checkbox" name="genre" value="code" checked> プログラミング</label>
+      <label><input type="checkbox" name="genre" value="code"> プログラミング</label>
     </fieldset>
 
-    <fieldset id="difficulty">
+    <fieldset id="difficulty" class="choice-group difficulty-choices">
       <legend>難易度</legend>
       <label><input type="radio" name="difficulty" value="easy"> やさしい</label>
       <label><input type="radio" name="difficulty" value="normal" checked> ふつう</label>
       <label><input type="radio" name="difficulty" value="hard"> むずかしい</label>
+      <p id="difficulty-guide" class="muted"></p>
       <p class="muted">5分正解できなければ一段やさしくします（ログに残ります）</p>
     </fieldset>
 
-    <fieldset id="sound">
+    <fieldset id="sound" class="choice-group sound-choices">
       <legend>音</legend>
       <label><input type="radio" name="sound" value="beep" checked> ビープ</label>
       <label><input type="radio" name="sound" value="siren"> サイレン</label>
       <label><input type="radio" name="sound" value="chime"> 学校のチャイム</label>
       <label><input type="radio" name="sound" value="clock"> 目覚まし時計</label>
       <div class="row"><button id="btn-preview-sound" type="button">試聴（2秒）</button></div>
-      <p class="muted">どの音も 30 秒ごとに少しずつ大きくなります</p>
+      <label for="alarm-volume">音量の上限 <output id="volume-value" for="alarm-volume">100%</output></label>
+      <input id="alarm-volume" type="range" min="10" max="100" step="10" value="100" aria-describedby="volume-help">
+      <p id="volume-help" class="muted">小さな音から始まり、30秒ごとに指定した上限まで上がります。試聴は上限の音量です。端末本体の音量も確認してください。</p>
     </fieldset>
 
         </div>
-      </details>
+      </div>
       <div id="alarm-actions" class="row">
-        <button id="btn-set" class="primary">セットする</button>
+        <button id="btn-set" class="primary">この時刻にセットする</button>
       </div>
   <div id="armed">
     <div id="now" class="mono">--:--:--</div>
@@ -79,19 +141,32 @@
   </div>
 
     </article>
-    <article id="lasttrain" class="feature-card" aria-labelledby="train-heading">
+    <article id="lasttrain" class="feature-card" aria-labelledby="train-heading" hidden>
       <div class="card-heading"><h2 id="train-heading">終電アラート</h2><span id="train-status" class="badge">未セット</span></div>
       <p id="train-route" class="route-summary">帰る時間を決める</p>
-      <details id="train-settings" open><summary>駅・通知時刻を変更</summary>
-      <p class="muted">自宅の最寄り駅以外にいるとき、そこから帰る終電を調べて、出発すべき時刻の少し前に知らせます。</p>
-      <div class="grid2">
-        <div>
-          <label for="home-station">自宅の最寄り駅</label>
-          <input id="home-station" type="text" class="small" placeholder="例: 国領">
+      <div id="lasttrain-result" hidden>
+        <div class="departure-display">
+          <p class="muted">出発まで</p>
+          <p id="lasttrain-countdown" class="mono"></p>
+          <div class="rail-decoration" aria-hidden="true"><i></i><span></span><i></i></div>
         </div>
+        <h3 class="itinerary-heading">帰宅ルート</h3>
+        <ol id="lasttrain-itinerary" class="itinerary" aria-label="乗車と乗り換えの順序"></ol>
+        <p id="lasttrain-summary" hidden></p>
+        <p id="lasttrain-checked" class="muted"></p>
+      </div>
+      <div id="train-settings">
+      <p class="muted">自宅の最寄り駅以外にいるとき、そこから帰る終電を調べて、出発すべき時刻の少し前に知らせます。</p>
+      <div class="journey-fields">
         <div>
-          <label for="current-station">今いる駅（空欄なら現在地から探す）</label>
-          <input id="current-station" type="text" class="small" placeholder="例: 調布">
+          <label for="current-station">出発：今いる駅</label>
+          <input id="current-station" type="text" class="small" placeholder="例: 新宿" aria-describedby="origin-help">
+          <p id="origin-help" class="muted">空欄なら現在地から探します。</p>
+        </div>
+        <span class="journey-arrow" aria-hidden="true">↓</span>
+        <div>
+          <label for="home-station">到着：自宅の最寄り駅</label>
+          <input id="home-station" type="text" class="small" placeholder="例: 調布">
         </div>
       </div>
       <label for="alert-minutes">列車の発車の何分前に知らせるか</label>
@@ -101,19 +176,15 @@
         <option value="20">20 分前</option>
         <option value="30">30 分前</option>
       </select>
-      </details>
+      </div>
       <div class="row">
         <button id="btn-lasttrain-check" type="button">終電を調べてセット</button>
         <button id="btn-lasttrain-clear" type="button">解除</button>
       </div>
       <p id="lasttrain-status" class="muted" role="status"></p>
-      <div id="lasttrain-result" class="note" hidden>
-        <p id="lasttrain-summary"></p>
-        <p id="lasttrain-checked" class="muted"></p>
-        <p id="lasttrain-countdown" class="mono"></p>
-      </div>
+
     </article>
-    <details class="history"><summary>起床の記録を見る</summary><ul id="home-log" class="log"></ul></details>
+    <details id="wake-history" class="history"><summary>起床の記録を見る</summary><ul id="home-log" class="log"></ul></details>
     <details id="pwa-info" class="history" hidden>
       <summary>アプリとして使う</summary>
       <p id="pwa-status" class="muted" role="status"></p>
@@ -121,7 +192,7 @@
       <p class="muted">iPhoneでは共有メニューから「ホーム画面に追加」。ほかのブラウザではメニューのインストール項目から追加できます。</p>
       <p class="muted">アラームを使う間は画面を開いたままにしてください。画面ロック中やアプリを閉じた後の通知・音は保証できません。</p>
     </details>
-    <details class="check">
+    <details id="alarm-check" class="check">
       <summary>動作確認</summary>
       <div class="row">
         <button id="btn-demo">10秒後に鳴らす</button>
@@ -134,25 +205,34 @@
 
   <!-- 鳴動: 問題 -->
   <section id="ringing">
-    <p class="eyebrow">起きろ。正解するまで止まらない</p>
-    <div id="question" class="question">問題を読み込み中…</div>
+    <p class="eyebrow">起床チェック中</p>
+    <p id="ringing-time" class="ringing-time mono"></p>
+    <p class="ringing-instruction">問題に正解すると、アラームが止まります。</p>
     <form id="answer-form" autocomplete="off">
-      <input id="answer" type="text" inputmode="numeric" placeholder="数値で答える" required>
-      <button type="submit" class="primary">答える</button>
+      <div class="question-panel">
+        <p id="attempts" class="muted">1問目</p>
+        <div id="question" class="question">問題を読み込み中…</div>
+        <label for="answer" class="answer-label">あなたの答え</label>
+        <input id="answer" type="text" inputmode="numeric" placeholder="数値で答える" required>
+      </div>
+      <button type="submit" class="primary">解答する</button>
     </form>
-    <p id="attempts" class="muted">1問目</p>
+    <p class="muted ringing-footnote">正解するまで音が鳴り続けます。</p>
   </section>
 
   <!-- 停止: ログ -->
   <section id="done">
     <h1>起床成功</h1>
     <p id="result" class="lead"></p>
+    <p id="next-alarm-note" class="muted"></p>
     <p id="weekly" class="muted"></p>
     <ul id="log" class="log"></ul>
     <button id="btn-again" class="primary">ホームに戻る</button>
   </section>
 
 </main>
+
+
 
 <!-- 終電アラート。どの画面にいても上に重ねて出す。帰るかどうかは人が決める -->
 <div id="lasttrain-alert" class="overlay" hidden>

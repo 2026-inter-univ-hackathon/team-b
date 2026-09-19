@@ -19,7 +19,8 @@ async function serviceWorker(){
  const context={URL,Request,Response,caches,fetch:async(r,opts)=>{networkCalls++;return new Response(opts?.cache||'network')},self:{registration:{scope},addEventListener(n,f){handlers[n]=f}}};
  vm.runInNewContext(readFileSync('sw.js','utf8'),context);
  let pending;handlers.install({waitUntil(p){pending=p}});await pending;
- const current=[...stores.keys()].find(k=>k.endsWith(':v1'));
+ const current=[...stores.keys()].find(k=>k.startsWith('zekki-shell:'+scope+':') && k!==old);
+ assert(current, 'new shell cache was installed');
  assert(![...stores.get(current).keys()].some(k=>k.includes('config.js')||k.includes('odpt.org')));
  handlers.activate({waitUntil(p){pending=p}});await pending;
  assert(!stores.has(old));assert(stores.has(other));
@@ -29,6 +30,7 @@ async function serviceWorker(){
  assert((await (await request(scope+'js/main.js')).text()).endsWith('js/main.js'));
  assert.equal(networkCalls,0);
  assert.equal(await request('https://api.odpt.org/api/v4/test?acl:consumerKey=redacted'),null);
+ assert.equal(await request('https://api-challenge.odpt.org/api/v4/test?acl:consumerKey=redacted'),null);
  assert.equal(await request(scope+'private.json'),null);
  assert.equal(await request(scope+'js/main.js?token=x'),null);
  assert.equal(await request(scope+'index.html','navigate','POST'),null);

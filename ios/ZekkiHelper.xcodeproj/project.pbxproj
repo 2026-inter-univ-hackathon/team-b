@@ -9,16 +9,22 @@
 /* Begin PBXBuildFile section */
 		5010F4F969B5A97D3BA059D1 /* AlarmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3EA6CDF6BD7941F2787BF4 /* AlarmService.swift */; };
 		5FA977212BF88958573F683E /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F2D2606B5EA777CD92C7F81 /* AppModel.swift */; };
+		7F6E889614012562F026B8F4 /* AlarmScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBAC3DEEA342D1133F22B154 /* AlarmScheduling.swift */; };
+		AF446FB69A59371A29D2CC83 /* problems.js in Resources */ = {isa = PBXBuildFile; fileRef = 327DE7FD11D520BB3A6397B7 /* problems.js */; };
 		C4F1A089C63BC7E420BFE0F1 /* ZekkiHelperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCDFF15A4FEBC3BF60C0763 /* ZekkiHelperApp.swift */; };
 		C7FA1402156A1E129CA8CD28 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABE0DD373363E989B79356A /* Models.swift */; };
+		FECC29CA6922E1A42A77312A /* ProblemGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C50CC7637E9CFB6631D5DF4 /* ProblemGenerator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0C50CC7637E9CFB6631D5DF4 /* ProblemGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemGenerator.swift; sourceTree = "<group>"; };
 		0F2D2606B5EA777CD92C7F81 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		198289701CEEE56351A1DF8E /* ZekkiHelper.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ZekkiHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2CCDFF15A4FEBC3BF60C0763 /* ZekkiHelperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZekkiHelperApp.swift; sourceTree = "<group>"; };
+		327DE7FD11D520BB3A6397B7 /* problems.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = problems.js; sourceTree = "<group>"; };
 		5A6E96C5A819690DBFA1539E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AABE0DD373363E989B79356A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		CBAC3DEEA342D1133F22B154 /* AlarmScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmScheduling.swift; sourceTree = "<group>"; };
 		EF3EA6CDF6BD7941F2787BF4 /* AlarmService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -26,10 +32,12 @@
 		084AC5A8B8D6212EF9CA738E /* ZekkiHelper */ = {
 			isa = PBXGroup;
 			children = (
+				CBAC3DEEA342D1133F22B154 /* AlarmScheduling.swift */,
 				EF3EA6CDF6BD7941F2787BF4 /* AlarmService.swift */,
 				0F2D2606B5EA777CD92C7F81 /* AppModel.swift */,
 				5A6E96C5A819690DBFA1539E /* Info.plist */,
 				AABE0DD373363E989B79356A /* Models.swift */,
+				0C50CC7637E9CFB6631D5DF4 /* ProblemGenerator.swift */,
 				2CCDFF15A4FEBC3BF60C0763 /* ZekkiHelperApp.swift */,
 			);
 			path = ZekkiHelper;
@@ -46,9 +54,19 @@
 		6B674905AA731A72C49DCD38 = {
 			isa = PBXGroup;
 			children = (
+				E5A76B543EB09B87AE216793 /* js */,
 				084AC5A8B8D6212EF9CA738E /* ZekkiHelper */,
 				0873FCCFE8E2A7DF68E44F39 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		E5A76B543EB09B87AE216793 /* js */ = {
+			isa = PBXGroup;
+			children = (
+				327DE7FD11D520BB3A6397B7 /* problems.js */,
+			);
+			name = js;
+			path = ../js;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -59,6 +77,7 @@
 			buildConfigurationList = 9EABB07D9267481573058F2A /* Build configuration list for PBXNativeTarget "ZekkiHelper" */;
 			buildPhases = (
 				096BC853F4D7C5A80DE01B3A /* Sources */,
+				B0AA06EAE8974195C2AA545A /* Resources */,
 			);
 			buildRules = (
 			);
@@ -104,14 +123,27 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		B0AA06EAE8974195C2AA545A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF446FB69A59371A29D2CC83 /* problems.js in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		096BC853F4D7C5A80DE01B3A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7F6E889614012562F026B8F4 /* AlarmScheduling.swift in Sources */,
 				5010F4F969B5A97D3BA059D1 /* AlarmService.swift in Sources */,
 				5FA977212BF88958573F683E /* AppModel.swift in Sources */,
 				C7FA1402156A1E129CA8CD28 /* Models.swift in Sources */,
+				FECC29CA6922E1A42A77312A /* ProblemGenerator.swift in Sources */,
 				C4F1A089C63BC7E420BFE0F1 /* ZekkiHelperApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

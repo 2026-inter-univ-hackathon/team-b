@@ -156,18 +156,23 @@ const Sound = {
     if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (this.ctx.state === "suspended") this.ctx.resume();
   },
-  start(kind) {
+  limit(volume = 100) {
+    const n = Number(volume);
+    return 0.6 * (Number.isFinite(n) ? Math.max(10, Math.min(100, n)) : 100) / 100;
+  },
+  start(kind, volume = 100) {
     this.init();
     // 試聴中に鳴動が始まったら、試聴を止めてから本番の音を鳴らす
     if (this.previewTimer) this.stop();
     if (this.stopPreset) return;
     const preset = SoundPresets[kind] || SoundPresets.beep;
     this.gain = this.ctx.createGain();
-    this.gain.gain.value = 0.1;
+    const maxGain = this.limit(volume);
+    this.gain.gain.value = Math.min(0.1, maxGain);
     this.gain.connect(this.ctx.destination);
     this.stopPreset = preset.start(this.ctx, this.gain);
     this.rampTimer = setInterval(() => {
-      const next = Math.min(0.6, this.gain.gain.value + 0.1);
+      const next = Math.min(maxGain, this.gain.gain.value + 0.1);
       this.gain.gain.setValueAtTime(next, this.ctx.currentTime);
     }, 30 * 1000);
   },
@@ -182,9 +187,10 @@ const Sound = {
     this.gain = null;
   },
   // 試聴。鳴らして 2 秒で止める。鳴動中は使わない
-  preview(kind) {
+  preview(kind, volume = 100) {
     this.stop();
-    this.start(kind);
+    this.start(kind, volume);
+    this.gain.gain.setValueAtTime(this.limit(volume), this.ctx.currentTime);
     this.previewTimer = setTimeout(() => this.stop(), 2000);
   },
 };
