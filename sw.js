@@ -1,5 +1,5 @@
 // 公開アセットを変更したら VERSION も更新する。
-const VERSION = 'v14';
+const VERSION = 'v15';
 const PREFIX = `zekki-shell:${self.registration.scope}:`;
 const CACHE = PREFIX + VERSION;
 const ASSETS = [

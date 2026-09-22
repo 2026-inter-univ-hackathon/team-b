@@ -1,4 +1,4 @@
-# 絶起ヘルパー iOS版
+# 絶起絶帰ヘルパー iOS版
 
 Swift 6 / SwiftUI / AlarmKit、iOS 26以降向け。Web版を参考にしたネイティブアプリです。ユーザーのSwift版着手指示により、この `ios/` 配下のみHTML/CSS/JS制約の例外です。サーバー・外部パッケージは使いません。
 

@@ -34,7 +34,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("絶起ヘルパー").font(.largeTitle.bold())
+                            Text("絶起絶帰ヘルパー").font(.largeTitle.bold())
                             Text("解いて起きる。帰る時間は、自分で決める。")
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }

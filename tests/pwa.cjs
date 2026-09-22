@@ -3,6 +3,8 @@ const {readFileSync,existsSync}=require('node:fs');
 const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const manifest=JSON.parse(readFileSync('manifest.webmanifest'));
+assert.equal(manifest.name,'絶起絶帰ヘルパー');
+assert.equal(manifest.short_name,'絶起絶帰ヘルパー');
 assert.equal(manifest.display,'standalone');
 for(const icon of manifest.icons){
  const png=readFileSync(icon.src);const size=Number(icon.sizes.split('x')[0]);
