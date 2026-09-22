@@ -42,3 +42,43 @@ train.settings.plan = null;
 train.renderItinerary();
 assert.equal($('#lasttrain-itinerary').children.length, 0);
 console.log('PASS: itinerary order, transfer/ride duration, no fabricated platforms, countdown, dismissed/expired/walking/empty plans');
+train.settings.plan = { leaveAt: dep, legs: [
+  { from: 'A', to: 'B', departAt: dep, arriveAt: dep + 10 * 60000, line: '1線' },
+  { from: 'B', to: 'C', departAt: dep + 15 * 60000, arriveAt: dep + 25 * 60000, line: '2線' },
+  { from: 'C', to: 'D', departAt: dep + 31 * 60000, arriveAt: dep + 45 * 60000, line: '3線' },
+] };
+train.renderItinerary();
+assert.equal($('#lasttrain-itinerary').children.length, 4);
+assert.match(text($('#lasttrain-itinerary').children[1]), /乗り換え 5分/);
+assert.match(text($('#lasttrain-itinerary').children[2]), /乗り換え 6分/);
+assert.match(train.summary(), /^B、C で乗り換え。/);
+console.log('PASS: both transfers appear in itinerary and notification summary');
+// The Web action explicitly requests two transfers; native callers keep their default.
+context.navigator = { onLine: true };
+context.Sound = { init() {} };
+context.Attention = { requestPermission() {} };
+context.persist = () => {};
+context.ODPT = { hasToken: () => true, network: async () => ({}) };
+const searchedPlan = train.settings.plan;
+context.LastTrainSearch = {
+  normalizeName: (_network, name) => name,
+  search: async (_network, from, to, _now, maxTransfers) => {
+    assert.equal(from, 'A'); assert.equal(to, 'D'); assert.equal(maxTransfers, 2);
+    return searchedPlan;
+  },
+};
+$('#home-station').value = 'D';
+$('#current-station').value = 'A';
+$('#alert-minutes').value = '15';
+train.setStatus = () => {};
+train.showError = message => { throw new Error(message); };
+train.render = () => {};
+let watching = false;
+train.watch = () => { watching = true; };
+train.settings.plan = null;
+train.check().then(() => {
+  assert.equal(train.settings.plan.legs.length, 3);
+  assert(watching);
+  assert.equal($('#btn-lasttrain-check').disabled, false);
+  console.log('PASS: Web search requests two transfers and persists/watches the three-leg result');
+}).catch(error => { console.error(error); process.exitCode = 1; });

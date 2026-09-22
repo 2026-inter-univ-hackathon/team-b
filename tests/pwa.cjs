@@ -28,6 +28,9 @@ async function serviceWorker(){
  assert((await (await request(scope,'navigate')).text()).endsWith('index.html'));
  assert((await (await request(scope+'index.html?launch=1','navigate')).text()).endsWith('index.html'));
  assert((await (await request(scope+'js/main.js')).text()).endsWith('js/main.js'));
+ for(const path of ['js/odpt.js','js/lasttrain.js']) {
+  assert.equal(await (await request(scope+path)).text(), scope+path, 'PWA serves shared train-search assets from its current shell');
+ }
  assert.equal(networkCalls,0);
  assert.equal(await request('https://api.odpt.org/api/v4/test?acl:consumerKey=redacted'),null);
  assert.equal(await request('https://api-challenge.odpt.org/api/v4/test?acl:consumerKey=redacted'),null);

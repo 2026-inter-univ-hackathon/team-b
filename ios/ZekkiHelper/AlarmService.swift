@@ -24,17 +24,19 @@ struct AlarmService: AlarmScheduling {
         let authorization = try await AlarmManager.shared.requestAuthorization()
         guard authorization == .authorized else { throw Failure.denied }
         let title: LocalizedStringResource = train ? "帰る時間です" : "起きる時間です"
+        let openButton: AlarmButton? = train ? nil : AlarmButton(text: "問題を解く", textColor: .white, systemImageName: "pencil")
         let alert: AlarmPresentation.Alert
         if #available(iOS 26.1, *) {
-            alert = AlarmPresentation.Alert(title: title)
+            alert = AlarmPresentation.Alert(title: title, secondaryButton: openButton, secondaryButtonBehavior: train ? nil : .custom)
         } else {
             alert = AlarmPresentation.Alert(title: title,
-                stopButton: AlarmButton(text: "停止", textColor: .white, systemImageName: "stop.fill"))
+                stopButton: AlarmButton(text: "停止", textColor: .white, systemImageName: "stop.fill"),
+                secondaryButton: openButton, secondaryButtonBehavior: train ? nil : .custom)
         }
         let attributes = AlarmAttributes(presentation: AlarmPresentation(alert: alert),
             metadata: ZekkiMetadata(purpose: train ? "train" : "wake"), tintColor: .orange)
         let configuration = AlarmManager.AlarmConfiguration<ZekkiMetadata>.alarm(
-            schedule: schedule, attributes: attributes)
+            schedule: schedule, attributes: attributes, secondaryIntent: train ? nil : OpenWakeIntent(alarmID: id.uuidString))
         _ = try await AlarmManager.shared.schedule(id: id, configuration: configuration)
     }
     func cancel(_ id: UUID) throws { try manager.cancel(id: id) }

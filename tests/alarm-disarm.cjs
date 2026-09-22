@@ -50,7 +50,7 @@ for (const time of ['07:30', '08:15']) {
   assert.equal(context.document.body.dataset.state, 'setup');
   assert.equal(element('#alarm-settings').hidden, false);
   assert(fields.every(field => !field.disabled));
-  assert.equal(focused, '#alarm-time');
+  assert.equal(focused, '#alarm-hour');
   assert.equal(saved.alarm.armed, false);
   assert.equal(saved.alarm.time, time);
   assert.equal(intervals.size, 0);

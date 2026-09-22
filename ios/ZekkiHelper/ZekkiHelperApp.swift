@@ -25,6 +25,9 @@ struct HomeView: View {
     @Bindable var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var feature = "alarm"
+    @State private var manualTrain = false
+    private enum TrainField: Hashable { case origin, home }
+    @FocusState private var trainField: TrainField?
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -74,7 +77,8 @@ struct HomeView: View {
             }.background(NightBackground())
             .toolbar(.hidden, for: .navigationBar)
             .task { await model.observe() }
-            .onChange(of: scenePhase) { _, phase in if phase == .active { model.synchronize() } }
+            .onChange(of: scenePhase) { _, phase in if phase == .active { model.synchronize(); Task { await model.refreshConfirmations() } } }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("zekki-open-alarm"))) { _ in model.synchronize() }
             .fullScreenCover(isPresented: Binding(get: { model.problem != nil }, set: { _ in })) { QuizView(model: model) }
             .sheet(isPresented: $model.trainAlerting) {
                 VStack(spacing: 24) {
@@ -110,6 +114,14 @@ struct HomeView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { timeline in
                     if let next = model.nextWake { Text("あと \(remaining(until: next, now: timeline.date))").monospacedDigit() }
                 }
+                if model.confirmationEnabled {
+                    Text("起床確認あり：2分後・5分後に追加で鳴らします。正解すると残りを取り消します。")
+                        .font(.footnote).foregroundStyle(.orange)
+                    if let date = model.confirmationUntil {
+                        Text("追加アラーム予約済み：\(date.formatted(date: .abbreviated, time: .shortened)) の起床分まで")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Text("繰り返しはiPhoneが予約を保持します。時刻や曜日の変更は解除してから行えます。")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button("目覚ましを解除", role: .destructive) { model.cancel(train: false) }.disabled(model.busy)
@@ -120,14 +132,20 @@ struct HomeView: View {
                     }
                     if model.schedule.mode == .weekly {
                         ForEach(Array(model.schedule.days.enumerated()), id: \.element.id) { index, day in
-                            HStack {
+                            VStack(alignment: .leading, spacing: 8) {
                                 Toggle(day.label, isOn: Binding(get: { model.schedule.days[index].enabled }, set: { model.schedule.days[index].enabled = $0 }))
-                                DatePicker(day.label + "の時刻", selection: dayBinding(index), displayedComponents: .hourAndMinute)
-                                    .labelsHidden().disabled(!day.enabled).opacity(day.enabled ? 1 : 0.4)
+                                ExplicitTimePicker(hour: dayHourBinding(index), minute: dayMinuteBinding(index))
+                                    .disabled(!day.enabled).opacity(day.enabled ? 1 : 0.4)
                             }
                         }
                         Text("チェックした曜日だけ鳴らします。").font(.footnote).foregroundStyle(.secondary)
-                    } else { DatePicker("鳴らす時刻", selection: $model.wakeTime, displayedComponents: .hourAndMinute) }
+                    } else {
+                        Text("鳴らす時刻").font(.subheadline.weight(.semibold))
+                        ExplicitTimePicker(hour: $model.saved.hour, minute: $model.saved.minute)
+                    }
+                    Toggle("起床確認あり", isOn: $model.confirmationEnabled)
+                    Text("起床時刻の2分後・5分後も予約します。正解または『今日は中止』で残りを取り消します。追加は次回の起床分だけで、正解・中止・アプリ再開時に更新します。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     Divider()
                     Text("出題ジャンル").font(.headline)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading) {
@@ -142,6 +160,8 @@ struct HomeView: View {
                     Picker("難易度", selection: $model.saved.difficulty) {
                         ForEach(Difficulty.allCases) { Text($0.rawValue).tag($0) }
                     }.pickerStyle(.segmented)
+                    Text("正答率が低い問題を優先し、4問ごとに1問は一段やさしい問題を出します。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     Text("5分正解できなければ難易度を1段階下げ、起床ログに残します。音量はiPhone本体で調整してください。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.disabled(model.busy)
@@ -151,14 +171,11 @@ struct HomeView: View {
             }
         }
     }
-    private func dayBinding(_ index: Int) -> Binding<Date> {
-        Binding(get: {
-            let day = model.schedule.days[index]
-            return Calendar.current.date(from: DateComponents(hour: day.hour, minute: day.minute)) ?? .now
-        }, set: {
-            model.schedule.days[index].hour = Calendar.current.component(.hour, from: $0)
-            model.schedule.days[index].minute = Calendar.current.component(.minute, from: $0)
-        })
+    private func dayHourBinding(_ index: Int) -> Binding<Int> {
+        Binding(get: { model.schedule.days[index].hour }, set: { model.schedule.days[index].hour = $0 })
+    }
+    private func dayMinuteBinding(_ index: Int) -> Binding<Int> {
+        Binding(get: { model.schedule.days[index].minute }, set: { model.schedule.days[index].minute = $0 })
     }
     private var trainCard: some View {
         card {
@@ -167,30 +184,91 @@ struct HomeView: View {
                 .font(.title2.bold())
             if model.saved.trainID == nil {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("出発：今いる駅").font(.subheadline)
-                    TextField("例：新宿", text: $model.saved.origin).textFieldStyle(.roundedBorder)
-                    Image(systemName: "arrow.down").foregroundStyle(.secondary)
-                    Text("到着：自宅の最寄り駅").font(.subheadline)
-                    TextField("例：調布", text: $model.saved.home).textFieldStyle(.roundedBorder)
-                    Text("公式時刻表で確認した発車日時を入力してください。自動検索は準備中です。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    DatePicker("発車日時", selection: $model.saved.departure, displayedComponents: [.date, .hourAndMinute])
+                    stationInput("出発：今いる駅", placeholder: "例：新宿", text: $model.saved.origin, field: .origin)
+                    Image(systemName: "arrow.down").font(.title2.weight(.bold)).foregroundStyle(.secondary)
+                    stationInput("到着：自宅の最寄り駅", placeholder: "例：調布", text: $model.saved.home, field: .home)
+                    Toggle("発車日時を手動で入力", isOn: $manualTrain)
+                    if manualTrain {
+                        Text("公式時刻表で確認した発車日時を入力してください。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        DatePicker("発車日時（日本時間）", selection: $model.saved.departure, displayedComponents: [.date, .hourAndMinute])
+                            .environment(\.timeZone, TimeZone(identifier: "Asia/Tokyo")!)
+                    } else {
+                        Button("終電を検索") {
+                            trainField = nil
+                            Task { await model.searchTrain() }
+                        }.buttonStyle(.borderedProminent)
+                        Text("首都圏の提供時刻表から、乗り換え2回までを検索します。運休・遅延は反映されません。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Picker("何分前に知らせるか", selection: $model.saved.leadMinutes) {
                         ForEach([10,15,20,30], id: \.self) { Text("\($0)分前").tag($0) }
                     }
-                }.disabled(model.busy)
-                Button("入力した時刻で通知をセット") { Task { await model.scheduleTrain() } }
-                    .buttonStyle(.borderedProminent).disabled(model.busy)
+                }.disabled(model.busy || model.trainLoading)
+                if model.trainLoading { ProgressView(model.trainStatus) }
+                else if !model.trainStatus.isEmpty {
+                    Text(model.trainStatus).font(.footnote).foregroundStyle(.orange)
+                    if model.stationNames.isEmpty {
+                        Button("駅データを再読み込み") { Task { await model.loadStations() } }
+                    }
+                }
+                if !manualTrain, let plan = model.matchingTrainPlan { trainItinerary(plan) }
+                if manualTrain || model.matchingTrainPlan != nil {
+                    Button(manualTrain ? "入力した時刻で通知をセット" : "この終電で通知をセット") {
+                        Task { await model.scheduleTrain(useSearchResult: !manualTrain) }
+                    }.buttonStyle(.borderedProminent).disabled(model.busy || model.trainLoading)
+                }
             } else {
                 TimelineView(.periodic(from: .now, by: 1)) { timeline in
                     Text("出発まで \(remaining(until: model.saved.departure, now: timeline.date))")
                         .font(.title2.monospacedDigit())
                 }
-                Text("\(model.saved.departure.formatted(date: .abbreviated, time: .shortened))発 · \(model.saved.leadMinutes)分前に通知")
+                Text("\(trainDate(model.saved.departure))発 · \(model.saved.leadMinutes)分前に通知")
+                if let plan = model.matchingTrainPlan { trainItinerary(plan) }
                 Button("解除", role: .destructive) { model.cancel(train: true) }.disabled(model.busy)
             }
             if let decision = model.saved.trainDecision { Text(decision).foregroundStyle(.secondary) }
         }
+        .task { if model.saved.trainID == nil { await model.loadStations() } }
+        .onChange(of: model.saved.origin) { _, _ in model.trainInputChanged() }
+        .onChange(of: model.saved.home) { _, _ in model.trainInputChanged() }
+        .onChange(of: manualTrain) { _, _ in model.saved.trainPlan = nil; model.trainStatus = "" }
+    }
+    private func stationInput(_ title: String, placeholder: String, text: Binding<String>, field: TrainField) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.subheadline)
+            TextField(placeholder, text: text).textFieldStyle(.roundedBorder).focused($trainField, equals: field)
+                .autocorrectionDisabled()
+            if !manualTrain, trainField == field, !text.wrappedValue.isEmpty {
+                ForEach(model.stationNames.filter { $0.contains(text.wrappedValue.trimmingCharacters(in: .whitespaces)) && $0 != text.wrappedValue }.prefix(6), id: \.self) { name in
+                    Button(name) { text.wrappedValue = name; trainField = nil }
+                        .font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+    private func trainItinerary(_ plan: TrainPlan) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("\(trainDate(plan.leaveAt)) 発 → \(trainTime(plan.arriveAt)) 着").font(.headline)
+            ForEach(Array(plan.legs.enumerated()), id: \.offset) { index, leg in
+                VStack(alignment: .leading, spacing: 4) {
+                    if index > 0 { Text("\(leg.from)で乗り換え").font(.caption).foregroundStyle(.orange) }
+                    Text("\(leg.from) \(trainTime(leg.departAt)) → \(leg.to) \(trainTime(leg.arriveAt))")
+                    Text([leg.line, leg.trainType, leg.headsign].filter { !$0.isEmpty }.joined(separator: "・"))
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            Text("検索日時：\(trainDate(plan.checkedAt))（日本時間・保存済みの検索結果）")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("出典：公共交通オープンデータセンター（ODPT）。乗車前に鉄道会社の運行情報もご確認ください。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+    private func trainDate(_ date: Date) -> String {
+        date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: Locale(identifier: "ja_JP"), timeZone: TimeZone(identifier: "Asia/Tokyo")!))
+    }
+    private func trainTime(_ date: Date) -> String {
+        date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: Locale(identifier: "ja_JP"), timeZone: TimeZone(identifier: "Asia/Tokyo")!))
     }
     private func remaining(until: Date, now: Date) -> String {
         let seconds = max(0, Int(until.timeIntervalSince(now)))
@@ -214,17 +292,63 @@ struct QuizView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 Text("おはよう。問題を解こう。").font(.title.bold())
-                Text("\(model.attempts)問目 ／ \(model.currentDifficulty.rawValue)" + (model.eased ? "（難易度を下げました）" : ""))
+                if let problem = model.problem {
+                    let actual = problem.difficulty ?? model.currentDifficulty
+                    Text("\(model.attempts)問目 ／ \(actual.rawValue)" + (actual != model.currentDifficulty ? "・解きやすい問題" : "") + (model.eased ? "（難易度を下げました）" : ""))
+                }
                     .foregroundStyle(.secondary)
                 if let problem = model.problem { NativeProblemView(problem: problem) }
                 TextField("整数で答える", text: $model.answer).textFieldStyle(.roundedBorder)
-                    .keyboardType(.numbersAndPunctuation).focused($answerFocused).onSubmit { model.submit() }
-                Button("解答する") { model.submit() }.buttonStyle(.borderedProminent)
+                    .keyboardType(.numbersAndPunctuation).focused($answerFocused).onSubmit { Task { await model.submit() } }
+                Button("解答する") { Task { await model.submit() } }.buttonStyle(.borderedProminent).disabled(model.busy)
+                Button("今日は中止", role: .destructive) { Task { await model.stopToday() } }.disabled(model.busy)
+                Text("中止すると残りの確認アラームも取り消します。起床成功には記録しません。繰り返しの予定は残ります。")
+                    .font(.footnote).foregroundStyle(.secondary)
                 Text(model.feedback).foregroundStyle(.orange)
                 if let error = model.error { Text(error).foregroundStyle(.red) }
             }.padding(24)
         }.background(NightBackground()).tint(accent).interactiveDismissDisabled()
             .task { answerFocused = true }
+    }
+}
+
+private struct ExplicitTimePicker: View {
+    @Binding var hour: Int
+    @Binding var minute: Int
+    private var period: Int { hour < 12 ? 0 : 1 }
+    private var hour12: Int { hour % 12 == 0 ? 12 : hour % 12 }
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                periodButton("午前", value: 0)
+                periodButton("午後", value: 1)
+            }
+            HStack(spacing: 10) {
+                Picker("時", selection: Binding(get: { hour12 }, set: { hour = $0 % 12 + period * 12 })) {
+                    ForEach(1...12, id: \.self) { Text("\($0)時").tag($0) }
+                }
+                .pickerStyle(.menu).frame(maxWidth: .infinity)
+                Picker("分", selection: $minute) {
+                    ForEach(0..<60, id: \.self) { Text(String(format: "%02d分", $0)).tag($0) }
+                }
+                .pickerStyle(.menu).frame(maxWidth: .infinity)
+            }
+            .font(.title3.monospacedDigit().weight(.semibold))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("時刻")
+    }
+    private func periodButton(_ title: String, value: Int) -> some View {
+        Button {
+            hour = hour % 12 + value * 12
+        } label: {
+            Text(title).fontWeight(.bold).frame(maxWidth: .infinity).padding(.vertical, 10)
+                .foregroundStyle(period == value ? .black : .primary)
+                .background(period == value ? Color.orange : Color.secondary.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(period == value ? Color.orange : Color.secondary.opacity(0.35)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(period == value ? .isSelected : [])
     }
 }
 

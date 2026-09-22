@@ -25,7 +25,7 @@ import Foundation
                     precondition(p.genre == genre && p.accepts(String(p.answer)))
                     precondition(p.type != previous)
                     precondition(!p.text.isEmpty || p.matrix != nil || p.integral != nil || p.combination != nil)
-                    if difficulty == .easy && genre == .math { precondition(["arithmetic", "linearEquation"].contains(p.type)) }
+                    if difficulty == .easy && genre == .math { precondition(["arithmetic", "linearEquation", "numberSequence"].contains(p.type)) }
                     if let matrix = p.matrix { precondition(matrix.count == (difficulty == .hard ? 3 : 2)) }
                     if let integral = p.integral { precondition(integral.lower == 0 && integral.upper > 0) }
                     if let combination = p.combination { precondition(combination.n >= combination.k) }
@@ -37,7 +37,10 @@ import Foundation
         state.wakeID = UUID(); state.origin = "調布"; state.home = "国領"
         let restored = try JSONDecoder().decode(SavedState.self, from: JSONEncoder().encode(state))
         precondition(restored.wakeID == state.wakeID && restored.home == "国領")
-        precondition(seen.count == 19)
+        precondition(seen.count == 23)
+        let rescue = try generator.generate(genres: [.math], difficulty: .hard,
+            stats: ["arithmetic": ProblemStat(correct: 1, wrong: 9)], preferEasier: true)
+        precondition(rescue.difficulty == .normal)
         for _ in 0..<50 {
             let p = try generator.generate(genres: [], difficulty: .normal)
             precondition(p.accepts(String(p.answer)))
@@ -71,10 +74,10 @@ import Foundation
         precondition(updated.reservations?.count == 2 && updated.genres?.count == 2)
         // Simulate exact v1 keys: new fields must not make old settings/logs undecodable.
         var old = try JSONSerialization.jsonObject(with: JSONEncoder().encode(state)) as! [String: Any]
-        for key in ["wakeSchedule", "genres", "reservations"] { old.removeValue(forKey: key) }
+        for key in ["wakeSchedule", "genres", "reservations", "problemStats"] { old.removeValue(forKey: key) }
         old["genre"] = "数学"
         let legacy = try JSONDecoder().decode(SavedState.self, from: JSONSerialization.data(withJSONObject: old))
         precondition(legacy.genre == .math && legacy.reservations == nil && legacy.wakeID == state.wakeID)
-        print("PASS: 1800 shared problems / 19 types, no repeats, math structures, daily/weekly/off/year schedules, train deadlines, answers, legacy/current storage")
+        print("PASS: 1800 shared problems / 23 types, adaptive bridge/rescue level, no repeats, math structures, daily/weekly/off/year schedules, train deadlines, answers, legacy/current storage")
     }
 }

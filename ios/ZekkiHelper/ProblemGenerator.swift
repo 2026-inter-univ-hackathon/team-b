@@ -9,17 +9,24 @@ final class ProblemGenerator {
         context = JSContext()
         let code = source ?? Bundle.main.url(forResource: "problems", withExtension: "js")
             .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
-        if let code { context?.evaluateScript(code + "\nvar nativeGenerate = (genres, level, previous) => Problems.generate(genres, level, previous);") }
+        if let code { context?.evaluateScript(code + "\nvar nativeGenerate = (genres, level, previous, stats, preferEasier) => Problems.generate(genres, level, previous, stats, preferEasier);") }
     }
-    func generate(genres: [Genre], difficulty: Difficulty, previous: String? = nil) throws -> Problem {
+    func generate(genres: [Genre], difficulty: Difficulty, previous: String? = nil,
+                  stats: [String: ProblemStat] = [:], preferEasier: Bool = false) throws -> Problem {
         let level = difficulty == .easy ? "easy" : difficulty == .normal ? "normal" : "hard"
+        let nativeStats = stats.mapValues { ["correct": $0.correct, "wrong": $0.wrong] }
         guard let context else { throw Failure.unavailable }
         context.exception = nil
-        guard let value = context.objectForKeyedSubscript("nativeGenerate")?.call(withArguments: [genres.map(\.webKey), level, previous ?? ""]),
+        guard let value = context.objectForKeyedSubscript("nativeGenerate")?.call(withArguments: [genres.map(\.webKey), level, previous ?? "", nativeStats, preferEasier]),
               context.exception == nil, let data = value.toDictionary(),
               let answer = data["answer"] as? Int, let type = data["type"] as? String else { throw Failure.unavailable }
         let genre = Genre.allCases.first { $0.webKey == data["genre"] as? String } ?? .math
         var problem = Problem(text: data["text"] as? String ?? "", answer: answer, type: type, genre: genre)
+        problem.difficulty = switch data["level"] as? String {
+        case "easy": .easy
+        case "hard": .hard
+        default: .normal
+        }
         if let parts = data["text"] as? [String: Any] {
             problem.suffix = parts["suffix"] as? String ?? ""
             if let matrix = parts["matrix"] as? [[Int]] { problem.matrix = matrix }

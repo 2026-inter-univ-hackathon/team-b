@@ -30,6 +30,19 @@ const Problems = (() => {
       answer: row[right ? length - position : position - 1], genre: "attention" };
   }
 
+  // ほとんど同じ記号の中から異なる1個を探し、左からの位置を答える。
+  function oddSymbolPosition(level) {
+    const symbols = pick([["○", "◎"], ["△", "▽"], ["□", "◇"]]);
+    const length = byLevel(level, 5, 9, 14);
+    const answer = rand(1, length);
+    const row = Array.from({ length }, (_, i) => i === answer - 1 ? symbols[1] : symbols[0]);
+    return {
+      text: `違う記号は左から何番目ですか？\n${row.join(" ")}`,
+      answer,
+      genre: "attention",
+    };
+  }
+
   function arithmetic(level) {
     const a = rand(2, 9), b = rand(2, 9), c = rand(2, 9), d = rand(2, 9);
     if (level === "hard") return { text: `(${a} + ${b}) × ${c} − ${d} は？`, answer: (a + b) * c - d, genre: "math" };
@@ -135,6 +148,24 @@ const Problems = (() => {
     };
   }
 
+  // 数列の次の項。hard は一定の二階差を持つ二次数列にする。
+  function numberSequence(level) {
+    const start = rand(byLevel(level, 1, -5, -5), byLevel(level, 9, 9, 9));
+    if (level === "hard") {
+      const first = rand(1, 5), second = rand(1, 4);
+      const row = [start];
+      let delta = first;
+      for (let i = 0; i < 4; i++) {
+        row.push(row[row.length - 1] + delta);
+        delta += second;
+      }
+      return { text: `数列 ${row.join(", ")}, ? の ? は？`, answer: row[4] + delta, genre: "math" };
+    }
+    const step = rand(2, byLevel(level, 5, 9, 9));
+    const row = Array.from({ length: byLevel(level, 4, 5, 5) }, (_, i) => start + step * i);
+    return { text: `数列 ${row.join(", ")}, ? の ? は？`, answer: row[row.length - 1] + step, genre: "math" };
+  }
+
   // ---------- 物理 ----------
 
   // 等加速度運動。v = v0 + at、または x = v0 t + (1/2) a t²（a を偶数にして整数解にする）
@@ -225,6 +256,25 @@ const Problems = (() => {
     return {
       text: `静止状態から自由落下して ${t} 秒間に落ちる距離は？（m、g = 10 m/s²）`,
       answer: 5 * t * t,
+      genre: "physics",
+    };
+  }
+
+  // 運動方程式 F = ma。hard は力と加速度から質量を逆算する。
+  function force(level) {
+    const mass = rand(1, byLevel(level, 5, 9, 12));
+    const acceleration = rand(1, byLevel(level, 5, 9, 12));
+    const value = mass * acceleration;
+    if (level === "hard") {
+      return {
+        text: `力 ${value} N で加速度 ${acceleration} m/s² が生じる物体の質量は？（kg）`,
+        answer: mass,
+        genre: "physics",
+      };
+    }
+    return {
+      text: `質量 ${mass} kg の物体を加速度 ${acceleration} m/s² で動かす力は？（N）`,
+      answer: value,
       genre: "physics",
     };
   }
@@ -342,11 +392,32 @@ const Problems = (() => {
     };
   }
 
+  // 条件分岐の追跡。入力値から最後に print される整数を答える。
+  function conditional(level) {
+    const x = rand(1, byLevel(level, 9, 20, 30));
+    const pivot = rand(3, byLevel(level, 7, 12, 18));
+    if (level === "hard") {
+      const divisor = pick([2, 3, 4]);
+      const answer = x > pivot ? (x % divisor === 0 ? x / divisor : x + divisor) : x - 1;
+      return {
+        text: { pre: `x = ${x}\nif x > ${pivot}:\n    if x % ${divisor} == 0:\n        x = x // ${divisor}\n    else:\n        x = x + ${divisor}\nelse:\n    x = x - 1\nprint(x)` },
+        answer,
+        genre: "code",
+      };
+    }
+    const add = rand(2, 6), answer = x >= pivot ? x + add : x - 1;
+    return {
+      text: { pre: `x = ${x}\nif x >= ${pivot}:\n    x = x + ${add}\nelse:\n    x = x - 1\nprint(x)` },
+      answer,
+      genre: "code",
+    };
+  }
+
   const generators = {
-    attention: [symbolCount, digitPosition],
-    math: [arithmetic, linearEquation, derivative, determinant, integral, dotProduct, combination],
-    physics: [uniformAcceleration, kineticEnergy, ohm, freeFall],
-    code: [loopSum, bitwise, intDiv, recursion, binaryLiteral, sliceSum],
+    attention: [symbolCount, digitPosition, oddSymbolPosition],
+    math: [arithmetic, linearEquation, derivative, determinant, integral, dotProduct, combination, numberSequence],
+    physics: [uniformAcceleration, kineticEnergy, ohm, freeFall, force],
+    code: [loopSum, bitwise, intDiv, recursion, binaryLiteral, sliceSum, conditional],
   };
 
   const LEVELS = ["easy", "normal", "hard"];
@@ -358,21 +429,47 @@ const Problems = (() => {
     return i > 0 ? LEVELS[i - 1] : null;
   }
 
-  // 指定ジャンル群からランダムに1問生成する。ジャンルが空なら全ジャンルから
-  function generate(genres, level = "normal", previousType = null) {
+  // 未挑戦は十分に混ぜつつ、誤答率が高いタイプほど出やすくする。
+  function typeWeight(stats, type) {
+    const row = stats && stats[type];
+    if (!row || (!row.correct && !row.wrong)) return 3;
+    const correct = Math.max(0, Number(row.correct) || 0);
+    const wrong = Math.max(0, Number(row.wrong) || 0);
+    return 1 + 4 * ((wrong + 1) / (correct + wrong + 2));
+  }
+
+  function weightedPick(items, stats) {
+    const total = items.reduce((sum, fn) => sum + typeWeight(stats, fn.name), 0);
+    let cursor = Math.random() * total;
+    for (const fn of items) {
+      cursor -= typeWeight(stats, fn.name);
+      if (cursor < 0) return fn;
+    }
+    return items[items.length - 1];
+  }
+
+  // 指定ジャンル群から1問生成する。4問ごとの救済問題は preferEasier で一段下げる。
+  function generate(genres, level = "normal", previousType = null, stats = {}, preferEasier = false) {
     if (!LEVELS.includes(level)) level = "normal";
+    const effectiveLevel = preferEasier ? easier(level) || level : level;
     const keys = (genres && genres.length) ? genres : Object.keys(generators);
     // 「やさしい」では微積分・行列・再帰を出さず、一段の処理に絞る。
-    const easy = { attention: generators.attention, math: [arithmetic, linearEquation], physics: [ohm, freeFall], code: [intDiv, binaryLiteral] };
-    const source = level === "easy" ? easy : generators;
+    const easy = { attention: generators.attention, math: [arithmetic, linearEquation, numberSequence], physics: [ohm, freeFall, force], code: [intDiv, binaryLiteral, conditional] };
+    const source = effectiveLevel === "easy" ? easy : generators;
     const pool = keys.flatMap(g => source[g] || []);
     const candidates = pool.filter(fn => fn.name !== previousType);
-    const generator = pick(candidates.length ? candidates : pool.length ? pool : generators.attention);
-    const problem = generator(level);
-    if (level === "easy" && problem.genre === "physics") {
-      problem.text += generator === ohm ? "（電圧 = 電流 × 抵抗）" : "（速度 = 重力加速度 × 時間）";
+    const available = candidates.length ? candidates : pool.length ? pool : generators.attention;
+    const generator = weightedPick(available, stats);
+    const problem = generator(effectiveLevel);
+    if (effectiveLevel === "easy" && problem.genre === "physics") {
+      const hints = new Map([
+        [ohm, "電圧 = 電流 × 抵抗"],
+        [freeFall, "速度 = 重力加速度 × 時間"],
+        [force, "力 = 質量 × 加速度"],
+      ]);
+      problem.text += `（${hints.get(generator)}）`;
     }
-    return { ...problem, type: generator.name };
+    return { ...problem, type: generator.name, level: effectiveLevel };
   }
 
   // 入力を正規化して整数として解釈する。解釈できなければ null
@@ -391,5 +488,5 @@ const Problems = (() => {
     return n !== null && n === problem.answer;
   }
 
-  return { generate, parseAnswer, isCorrect, generators, LEVELS, LEVEL_LABELS, easier };
+  return { generate, parseAnswer, isCorrect, generators, LEVELS, LEVEL_LABELS, easier, typeWeight };
 })();
