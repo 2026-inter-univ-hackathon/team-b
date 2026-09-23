@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3DF7AB1380BF4D0D71625456 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A54D0E54579B4066D033E40E /* Assets.xcassets */; };
 		5010F4F969B5A97D3BA059D1 /* AlarmService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3EA6CDF6BD7941F2787BF4 /* AlarmService.swift */; };
 		5FA977212BF88958573F683E /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F2D2606B5EA777CD92C7F81 /* AppModel.swift */; };
 		7F6E889614012562F026B8F4 /* AlarmScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBAC3DEEA342D1133F22B154 /* AlarmScheduling.swift */; };
@@ -18,6 +19,7 @@
 
 /* Begin PBXFileReference section */
 		0C50CC7637E9CFB6631D5DF4 /* ProblemGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProblemGenerator.swift; sourceTree = "<group>"; };
+		A54D0E54579B4066D033E40E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0F2D2606B5EA777CD92C7F81 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		198289701CEEE56351A1DF8E /* ZekkiHelper.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ZekkiHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2CCDFF15A4FEBC3BF60C0763 /* ZekkiHelperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZekkiHelperApp.swift; sourceTree = "<group>"; };
@@ -35,6 +37,7 @@
 				CBAC3DEEA342D1133F22B154 /* AlarmScheduling.swift */,
 				EF3EA6CDF6BD7941F2787BF4 /* AlarmService.swift */,
 				0F2D2606B5EA777CD92C7F81 /* AppModel.swift */,
+				A54D0E54579B4066D033E40E /* Assets.xcassets */,
 				5A6E96C5A819690DBFA1539E /* Info.plist */,
 				AABE0DD373363E989B79356A /* Models.swift */,
 				0C50CC7637E9CFB6631D5DF4 /* ProblemGenerator.swift */,
@@ -128,6 +131,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3DF7AB1380BF4D0D71625456 /* Assets.xcassets in Resources */,
 				AF446FB69A59371A29D2CC83 /* problems.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
