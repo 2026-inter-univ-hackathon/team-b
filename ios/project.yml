@@ -51,6 +51,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: jp.zekkihelper.ios
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 schemes:
   ZekkiHelper:
     build:
