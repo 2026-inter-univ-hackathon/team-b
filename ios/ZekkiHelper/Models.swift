@@ -32,12 +32,21 @@ struct SavedState: Codable {
     var departure = Date().addingTimeInterval(3600)
     var trainID: UUID?
     var trainDecision: String?
+    var trainPlan: TrainPlan?
     var records: [WakeRecord] = []
     // Optional additions keep existing v1 UserDefaults readable.
     var wakeSchedule: WakeSchedule?
     var genres: [Genre]?
     var reservations: [WakeReservation]?
+    var wakeConfirmationEnabled: Bool?
+    var confirmations: [WakeConfirmation]?
+    var quizSession: WakeQuizSession?
+    var problemStats: [String: ProblemStat]?
 
+}
+struct ProblemStat: Codable, Equatable {
+    var correct = 0
+    var wrong = 0
 }
 enum RepeatMode: String, Codable, CaseIterable, Identifiable {
     case once = "1回だけ", daily = "毎日", weekly = "曜日ごと"
@@ -73,6 +82,7 @@ struct WakeReservation: Codable, Identifiable {
     var weekdays: [Int] = []
     var date: Date?
     var demo = false
+    var followUp: Bool?
     var repeats: Bool { !weekdays.isEmpty }
     func next(now: Date = .now, calendar: Calendar = .current) -> Date? {
         if let date { return date > now ? date : nil }
@@ -81,7 +91,7 @@ struct WakeReservation: Codable, Identifiable {
         }.min()
     }
 }
-struct Problem {
+struct Problem: Codable {
     var text: String
     let answer: Int
     var type: String = ""
@@ -91,8 +101,9 @@ struct Problem {
     var combination: Combination?
     var suffix: String = ""
     var code: Bool = false
-    struct Integral { let lower: Int; let upper: Int; let integrand: String }
-    struct Combination { let n: Int; let k: Int }
+    var difficulty: Difficulty?
+    struct Integral: Codable { let lower: Int; let upper: Int; let integrand: String }
+    struct Combination: Codable { let n: Int; let k: Int }
     func accepts(_ text: String) -> Bool {
         let normalized = text.precomposedStringWithCompatibilityMapping
             .replacingOccurrences(of: "−", with: "-")
@@ -108,4 +119,55 @@ enum AlarmDates {
         let alert = departure.addingTimeInterval(-Double(lead) * 60)
         return alert > now ? alert : nil
     }
+}
+
+struct TrainPlan: Codable, Equatable {
+    var origin: String
+    var home: String
+    var leaveAt: Date
+    var arriveAt: Date
+    var checkedAt: Date
+    var calendar: String
+    var legs: [TrainLeg]
+}
+struct TrainLeg: Codable, Equatable {
+    var line: String
+    var from: String
+    var to: String
+    var departAt: Date
+    var arriveAt: Date
+    var trainType: String
+    var headsign: String
+}
+
+// Each batch belongs to one occurrence, not the entire repeating alarm.
+struct WakeConfirmation: Codable, Identifiable {
+    var id = UUID()
+    var primaryID: UUID
+    var scheduledAt: Date
+    var backups: [WakeReservation]
+    var resolved = false
+    var finishedAt: Date?
+    enum Failure: LocalizedError {
+        case cancellation(Int)
+        var errorDescription: String? {
+            switch self { case .cancellation(let count): "追加アラームを取り消せませんでした。残り\(count)件。もう一度操作してください。" }
+        }
+    }
+    static func make(for primary: WakeReservation, at date: Date) -> WakeConfirmation {
+        WakeConfirmation(primaryID: primary.id, scheduledAt: date, backups: [120.0, 300.0].map { offset in
+            WakeReservation(hour: 0, minute: 0, date: date.addingTimeInterval(offset), followUp: true)
+        })
+    }
+}
+struct WakeQuizSession: Codable {
+    var primaryID: UUID
+    var confirmationID: UUID?
+    var startedAt: Date
+    var problem: Problem
+    var answer: String
+    var attempts: Int
+    var eased: Bool
+    var feedback: String
+    var demo: Bool?
 }

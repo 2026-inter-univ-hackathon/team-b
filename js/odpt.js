@@ -1,5 +1,5 @@
 // 公共交通オープンデータセンター（ODPT）から時刻表を取り、終電を自分で探す。
-// 経路探索 API が無いので、路線の駅並び順と列車時刻表だけで「乗り換えなし／1回」の経路を組む。
+// 経路探索 API が無いので、路線の駅並び順と列車時刻表だけで「乗り換えなし／最大2回」の経路を組む。
 //
 // 通常キー: api.odpt.org（メトロ・都営）。チャレンジキー: api-challenge.odpt.org（JR・私鉄）。
 // トークンなし: api-public.odpt.org の公開ダンプ（都営 6 路線のみ。動作確認用）
@@ -183,26 +183,51 @@ const LastTrainSearch = {
     return null;
   },
 
-  // 乗り換えなし、または 1 回の候補。各候補は leg の配列
-  candidates(network, from, to) {
-    const rails = network.rails;
-    const out = [];
-    for (const r of rails) {
-      const a = r.names.indexOf(from), b = r.names.indexOf(to);
-      if (a >= 0 && b >= 0 && a !== b) out.push([{ rail: r, from, to }]);
+  // 候補を一度に配列化せず、最大3乗車まで順に生成する。
+  // 同じ駅への戻りと同一路線での連続乗り換えは除外する。
+  *candidates(network, from, to, maxTransfers = 1) {
+    if (from === to) return;
+    const stationRails = new Map();
+    for (const rail of network.rails) {
+      for (const name of new Set(rail.names.filter(Boolean))) {
+        if (!stationRails.has(name)) stationRails.set(name, []);
+        stationRails.get(name).push(rail);
+      }
     }
-    const fromRails = rails.filter((r) => r.names.includes(from));
-    const toRails = rails.filter((r) => r.names.includes(to));
-    for (const r1 of fromRails) {
-      for (const r2 of toRails) {
-        if (r1.id === r2.id) continue;
-        for (const x of new Set(r1.names)) {
-          if (!x || x === from || x === to || !r2.names.includes(x)) continue;
-          out.push([{ rail: r1, from, to: x }, { rail: r2, from: x, to }]);
+    const maxRides = maxTransfers + 1;
+    // 到着駅までに最低何乗車必要か。残り乗車数で届かない枝は探索しない。
+    const distance = new Map([[to, 0]]), expanded = new Set();
+    let frontier = [to];
+    for (let rides = 1; rides <= maxRides && frontier.length; rides++) {
+      const next = [];
+      for (const station of frontier) {
+        for (const rail of stationRails.get(station) || []) {
+          if (expanded.has(rail.id)) continue;
+          expanded.add(rail.id);
+          for (const name of rail.names) {
+            if (!name || distance.has(name)) continue;
+            distance.set(name, rides); next.push(name);
+          }
+        }
+      }
+      frontier = next;
+    }
+    function* walk(station, legs, visited) {
+      const remaining = maxRides - legs.length;
+      if ((distance.get(station) ?? Infinity) > remaining) return;
+      for (const rail of stationRails.get(station) || []) {
+        if (rail.id === legs[legs.length - 1]?.rail.id) continue;
+        if (rail.names.includes(to)) yield [...legs, { rail, from: station, to }];
+        if (remaining === 1) continue;
+        for (const transfer of new Set(rail.names)) {
+          if (!transfer || transfer === to || visited.has(transfer)) continue;
+          if ((distance.get(transfer) ?? Infinity) > remaining - 1) continue;
+          if (!(stationRails.get(transfer) || []).some((other) => other.id !== rail.id)) continue;
+          yield* walk(transfer, [...legs, { rail, from: station, to: transfer }], new Set([...visited, transfer]));
         }
       }
     }
-    return out;
+    yield* walk(from, [], new Set([from]));
   },
 
   // 路線 rail を from → to と乗り、limit（分）までに着ける中で一番遅く出る列車
@@ -224,7 +249,7 @@ const LastTrainSearch = {
           // 通過駅など、時刻のないエントリーは到着として扱わない。
           if (!time) break;
           const arr = this.toMin(time);
-          if (arr <= limit && arr >= dep && (!best || dep > best.dep)) best = { dep, arr, train: t };
+          if (arr <= limit && arr >= dep && (!best || dep > best.dep || (dep === best.dep && arr < best.arr))) best = { dep, arr, train: t };
           break;
         }
       }
@@ -238,27 +263,34 @@ const LastTrainSearch = {
     return { trainType: this.TRAIN_TYPES[type] || type || "", headsign: dest ? `${dest}行` : "" };
   },
 
-  // 終電を探す。見つかれば { legs, leaveMin, arriveMin }、無ければ null
-  async search(network, from, to, now = new Date()) {
+  // 終電を探す。Web・iOSとも2回を明示指定。省略時は従来の呼び出しとの互換で1回。
+  // 見つかれば実日時とlegs、無ければ { noRoute: true }。
+  async search(network, from, to, now = new Date(), maxTransfers = 1) {
     const day = this.operatingDay(now);
     const calendars = this.calendarsFor(day);
-    const cands = this.candidates(network, from, to);
-    if (!cands.length) return { noRoute: true };
-    const timetableOf = async (rail) => ODPT.trainTimetables(rail.id, calendars);
+    const cands = this.candidates(network, from, to, maxTransfers);
+    // 共有する末尾区間は一度だけ計算。時刻表も路線ごとに一度だけ要求する。
+    const timetables = new Map(), legResults = new Map();
+    const timetableOf = (rail) => {
+      if (!timetables.has(rail.id)) timetables.set(rail.id, ODPT.trainTimetables(rail.id, calendars));
+      return timetables.get(rail.id);
+    };
     let best = null;
     for (const legs of cands) {
       let limit = this.END_OF_NIGHT;
       const solved = [];
       for (let i = legs.length - 1; i >= 0; i--) {
         const leg = legs[i];
-        const found = this.latestLeg(await timetableOf(leg.rail), leg.rail, leg.from, leg.to, limit);
+        const key = JSON.stringify([leg.rail.id, leg.from, leg.to, limit]);
+        if (!legResults.has(key)) legResults.set(key, this.latestLeg(await timetableOf(leg.rail), leg.rail, leg.from, leg.to, limit));
+        const found = legResults.get(key);
         if (!found) { solved.length = 0; break; }
         solved.unshift({ ...leg, dep: found.dep, arr: found.arr, ...this.describeTrain(network, found.train) });
         limit = found.dep - this.TRANSFER_MINUTES;
       }
       if (!solved.length) continue;
       const leaveMin = solved[0].dep, arriveMin = solved[solved.length - 1].arr;
-      if (!best || leaveMin > best.leaveMin || (leaveMin === best.leaveMin && (solved.length < best.legs.length || arriveMin < best.arriveMin))) {
+      if (!best || leaveMin > best.leaveMin || (leaveMin === best.leaveMin && (solved.length < best.legs.length || (solved.length === best.legs.length && arriveMin < best.arriveMin)))) {
         best = { legs: solved, leaveMin, arriveMin };
       }
     }

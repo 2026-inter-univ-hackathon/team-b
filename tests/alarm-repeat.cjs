@@ -24,7 +24,7 @@ function app(now, initial = {}) {
       querySelectorAll() { return []; }, querySelector() { return null; }},
     window: {addEventListener() {}}, Store: {load: () => structuredClone(saved), save: data => { saved = structuredClone(data); return true; }},
     Sound: {init() {}, stop() {}, start() { sounds++; }}, Attention: {requestPermission() {}, start() {}, stop() {}},
-    Problems: {LEVEL_LABELS: {normal: 'ふつう'}, easier: () => null, generate: () => ({text: '1 + 1', answer: 2}), isCorrect: (_, answer) => answer === '2'},
+    Problems: {LEVEL_LABELS: {normal: 'ふつう'}, easier: () => null, generate: () => ({text: '1 + 1', answer: 2, type: 'arithmetic', level: 'normal'}), isCorrect: (_, answer) => answer === '2'},
     pad2: n => String(n).padStart(2, '0'), setInterval(fn) { intervals.add(fn); return fn; }, clearInterval(fn) { intervals.delete(fn); }, clearTimeout() {},
   };
   vm.createContext(context);
@@ -72,6 +72,7 @@ for (const mode of ['once', 'daily']) {
   a = app(at('2026-12-31', '06:00'));
   a.setup(mode); a.click('#btn-set');
   a.advance(at('2026-12-31', '07:30')); a.answer();
+  assert.equal(a.saved.problemStats.arithmetic.correct, 1, 'correct result is persisted by problem type');
   assert.equal(a.saved.alarm.armed, mode === 'daily');
   assert.equal(a.saved.alarm.nextAt, mode === 'daily' ? at('2027-01-01', '07:30') : null);
   assert.equal(a.intervals.size, mode === 'daily' ? 1 : 0);
@@ -81,6 +82,7 @@ a.setup('daily'); a.click('#btn-demo');
 a.advance(at('2026-09-18', '06:01')); a.answer();
 assert.equal(a.saved.alarm.armed, false);
 assert.equal(a.intervals.size, 0);
+assert.equal(Object.keys(a.saved.problemStats).length, 0, 'demo results do not affect accuracy history');
 // 全曜日オフ・空の時刻はセットできない。週1回は翌週へ。
 a = app(at('2026-09-21', '07:00'));
 a.setup('weekly'); a.click('#btn-set');
@@ -114,4 +116,12 @@ assert.equal(a.sounds, 0); assert.equal(a.intervals.size, 0); assert.equal(a.$('
 a = app(at('2026-09-18', '09:00'), {alarm: {time: '07:30', armed: true, armedAt: at('2026-09-18', '06:00')}});
 assert.equal(a.context.state.alarm.repeat, 'once');
 assert.equal(a.sounds, 0); assert.equal(a.$('#missed').hidden, false);
+a = app(at('2026-09-18', '06:00'), {alarm: {time: '13:05'}});
+assert.equal(a.$('#alarm-period-pm').checked, true);
+assert.equal(a.$('#alarm-hour').value, '1');
+assert.equal(a.$('#alarm-minute').value, '05');
+a.$('#alarm-period-am').checked = true; a.$('#alarm-period-pm').checked = false;
+a.$('#alarm-hour').value = '12'; a.$('#alarm-minute').value = '10';
+a.$('#alarm-fields').events.change();
+assert.equal(a.context.state.alarm.time, '00:10', '12 AM is stored as 24-hour midnight');
 console.log('PASS: weekday times/off days, daily/year rollover, once/demo, validation, auto-rearm, reload, disarm, missed choices, sleep, legacy storage');

@@ -73,8 +73,19 @@
       <option value="weekly">曜日ごと</option>
     </select>
     <div id="alarm-common-time">
-    <label for="alarm-time">鳴らす時刻</label>
-    <input id="alarm-time" type="time" value="07:30" class="mono">
+    <fieldset class="time-picker">
+      <legend>鳴らす時刻</legend>
+      <input id="alarm-time" type="hidden" value="07:30">
+      <div class="period-choices" aria-label="午前または午後">
+        <label><input id="alarm-period-am" type="radio" name="alarm-period" value="am" checked> 午前</label>
+        <label><input id="alarm-period-pm" type="radio" name="alarm-period" value="pm"> 午後</label>
+      </div>
+      <div class="time-parts">
+        <label><span>時</span><select id="alarm-hour" class="mono" aria-label="時"></select></label>
+        <span class="time-separator" aria-hidden="true">:</span>
+        <label><span>分</span><select id="alarm-minute" class="mono" aria-label="分"></select></label>
+      </div>
+    </fieldset>
     </div>
     <fieldset id="alarm-weekdays" hidden>
       <legend>鳴らす曜日と時刻</legend>
@@ -105,6 +116,7 @@
       <label><input type="radio" name="difficulty" value="normal" checked> ふつう</label>
       <label><input type="radio" name="difficulty" value="hard"> むずかしい</label>
       <p id="difficulty-guide" class="muted"></p>
+      <p class="muted">苦手な問題を優先し、4問ごとに1問は一段やさしい問題を出します。</p>
       <p class="muted">5分正解できなければ一段やさしくします（ログに残ります）</p>
     </fieldset>
 
@@ -144,6 +156,7 @@
     <article id="lasttrain" class="feature-card" aria-labelledby="train-heading" hidden>
       <div class="card-heading"><h2 id="train-heading">終電アラート</h2><span id="train-status" class="badge">未セット</span></div>
       <p id="train-route" class="route-summary">帰る時間を決める</p>
+      <p class="muted">乗り換えは最大2回。提供されている時刻表から検索します。</p>
       <div id="lasttrain-result" hidden>
         <div class="departure-display">
           <p class="muted">出発まで</p>
@@ -163,7 +176,7 @@
           <input id="current-station" type="text" class="small" placeholder="例: 新宿" aria-describedby="origin-help">
           <p id="origin-help" class="muted">空欄なら現在地から探します。</p>
         </div>
-        <span class="journey-arrow" aria-hidden="true">↓</span>
+        <span class="journey-arrow" aria-hidden="true"><svg width="32" height="36" viewBox="0 0 32 36" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M16 5v26M7 22l9 9 9-9"/></svg></span>
         <div>
           <label for="home-station">到着：自宅の最寄り駅</label>
           <input id="home-station" type="text" class="small" placeholder="例: 調布">

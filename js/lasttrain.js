@@ -86,9 +86,9 @@ const LastTrain = {
         plan = { walkOnly: true, homeStation: home };
       } else {
         this.setStatus(`${origin} → ${home} の終電を時刻表から探しています…`);
-        plan = this.toPlan(origin, await LastTrainSearch.search(network, origin, home), home);
+        plan = this.toPlan(origin, await LastTrainSearch.search(network, origin, home, new Date(), 2), home);
       }
-      if (plan.noRoute) throw new Error(`${origin} → ${home} は乗り換え 1 回までの経路が見つかりません`);
+      if (plan.noRoute) throw new Error(`${origin} → ${home} は乗り換え 2 回までの経路が見つかりません`);
       if (!plan.walkOnly && plan.leaveAt <= Date.now()) throw new Error(`今日の終電（${this.hhmm(plan.leaveAt)} ${plan.originStation} 発）はもう出ています`);
       this.settings.plan = plan;
       persist();
@@ -171,7 +171,7 @@ const LastTrain = {
     const p = this.settings.plan;
     if (!p || p.walkOnly || !p.legs) return "";
     const legs = p.legs.map((l) => `${l.from} ${this.hhmm(l.departAt)} 発 ${l.line}${l.trainType ? " " + l.trainType : ""}${l.headsign ? "（" + l.headsign + "）" : ""} → ${l.to} ${this.hhmm(l.arriveAt)} 着`);
-    const via = p.legs.length > 1 ? `${p.legs[0].to} で乗り換え。` : "";
+    const via = p.legs.length > 1 ? `${p.legs.slice(0, -1).map((leg) => leg.to).join("、")} で乗り換え。` : "";
     return `${via}${legs.join("、")}`;
   },
 
