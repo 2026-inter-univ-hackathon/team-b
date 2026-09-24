@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "絶起ヘルパー",
-  "short_name": "絶起ヘルパー",
+  "name": "Zekki ヘルパー",
+  "short_name": "Zekki ヘルパー",
   "description": "理系の問題で起きる目覚ましと、帰る時間を決める終電アラート。",
   "lang": "ja",
   "start_url": "./index.html",
