@@ -6,6 +6,7 @@
 const state = {
   alarm: { time: "07:30", repeat: "once", weekdays: {}, nextAt: null, armed: false, genres: ["attention"], difficulty: "normal", sound: "beep", volume: 100 },
   log: [],
+  problemStats: {},
 };
 
 // 鳴動中だけ使う一時状態（保存しない）
@@ -109,6 +110,43 @@ function applyDifficultyToForm() {
   document.querySelectorAll('input[name="difficulty"]').forEach((el) => {
     el.checked = el.value === state.alarm.difficulty;
   });
+}
+
+// 保存値は従来どおり24時間表記にし、画面では午前・午後を明確に分ける。
+function populateTimeControls() {
+  const hour = $("#alarm-hour");
+  const minute = $("#alarm-minute");
+  if (hour.children.length || minute.children.length) return;
+  for (let value = 1; value <= 12; value++) {
+    const option = document.createElement("option");
+    option.value = String(value);
+    option.textContent = String(value);
+    hour.appendChild(option);
+  }
+  for (let value = 0; value < 60; value++) {
+    const option = document.createElement("option");
+    option.value = pad2(value);
+    option.textContent = pad2(value);
+    minute.appendChild(option);
+  }
+}
+
+function applyTimeToControls() {
+  if (!validTime(state.alarm.time)) return;
+  const [hour24, minute] = state.alarm.time.split(":").map(Number);
+  $("#alarm-period-am").checked = hour24 < 12;
+  $("#alarm-period-pm").checked = hour24 >= 12;
+  $("#alarm-hour").value = String(hour24 % 12 || 12);
+  $("#alarm-minute").value = pad2(minute);
+  $("#alarm-time").value = state.alarm.time;
+}
+
+function syncTimeFromControls() {
+  const hour = Number($("#alarm-hour").value);
+  const minute = $("#alarm-minute").value;
+  if (!Number.isInteger(hour) || hour < 1 || hour > 12 || !/^\d{2}$/.test(minute)) return;
+  const hour24 = hour % 12 + ($("#alarm-period-pm").checked ? 12 : 0);
+  $("#alarm-time").value = `${pad2(hour24)}:${minute}`;
 }
 
 // 今出題すべき難易度。5分正解できなかったら一段下げる
@@ -271,7 +309,7 @@ function disarm() {
   $("#armed-note").hidden = true;
   setScreen("setup");
   $("#alarm-settings").hidden = false;
-  $(state.alarm.repeat === "weekly" ? "#alarm-repeat" : "#alarm-time").focus();
+  $(state.alarm.repeat === "weekly" ? "#alarm-repeat" : "#alarm-hour").focus();
 }
 
 function armDemo() {
@@ -351,7 +389,15 @@ function renderMathProblem(container, text) {
 }
 
 function showProblem() {
-  session.problem = Problems.generate(state.alarm.genres, currentLevel(), session.problem && session.problem.type);
+  const baseLevel = currentLevel();
+  const preferEasier = Boolean(Problems.easier(baseLevel)) && (session.attempts + 1) % 4 === 0;
+  session.problem = Problems.generate(
+    state.alarm.genres,
+    baseLevel,
+    session.problem && session.problem.type,
+    state.problemStats,
+    preferEasier
+  );
   session.attempts += 1;
   const q = $("#question");
   q.textContent = "";
@@ -368,7 +414,9 @@ function showProblem() {
     pre.textContent = text.pre;
     q.appendChild(pre);
   }
-  $("#attempts").textContent = `${session.attempts}問目（${Problems.LEVEL_LABELS[currentLevel()]}）` + (session.eased ? "　難易度を下げました" : "");
+  const actualLevel = session.problem.level || baseLevel;
+  const easierNote = actualLevel !== baseLevel ? "・解きやすい問題" : "";
+  $("#attempts").textContent = `${session.attempts}問目（${Problems.LEVEL_LABELS[actualLevel] || Problems.LEVEL_LABELS[baseLevel]}${easierNote}）` + (session.eased ? "　難易度を下げました" : "");
   const input = $("#answer");
   input.value = "";
   input.classList.remove("wrong");
@@ -404,14 +452,24 @@ function onAnswer(ev) {
   ev.preventDefault();
   const input = $("#answer");
   if (Problems.isCorrect(session.problem, input.value)) {
+    recordProblemResult(true);
     finish();
     return;
   }
+  recordProblemResult(false);
   // 不正解: 震わせてから次の問題。アニメーションを再発火させるため一度クラスを外す
   input.classList.remove("wrong");
   void input.offsetWidth;
   input.classList.add("wrong");
   setTimeout(showProblem, 450);
+}
+
+function recordProblemResult(correct) {
+  if (demoAlarm || !session.problem || !session.problem.type) return;
+  const row = state.problemStats[session.problem.type] || { correct: 0, wrong: 0 };
+  row[correct ? "correct" : "wrong"] += 1;
+  state.problemStats[session.problem.type] = row;
+  persist();
 }
 
 // ---------- 停止・ログ ----------
@@ -474,6 +532,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const saved = Store.load();
   if (saved.alarm) Object.assign(state.alarm, saved.alarm);
   if (Array.isArray(saved.log)) state.log = saved.log;
+  if (saved.problemStats && typeof saved.problemStats === "object") state.problemStats = saved.problemStats;
   if (saved.lastTrain) state.lastTrain = saved.lastTrain;
 
   if (!["once", "daily", "weekly"].includes(state.alarm.repeat)) state.alarm.repeat = "once";
@@ -484,7 +543,8 @@ document.addEventListener("DOMContentLoaded", () => {
     $(`#alarm-day-${day}`).checked = time === undefined ? day >= 1 && day <= 5 : validTime(time);
     $(`#alarm-day-time-${day}`).value = validTime(time) ? time : state.alarm.time;
   }
-  $("#alarm-time").value = state.alarm.time;
+  populateTimeControls();
+  applyTimeToControls();
   applyGenresToForm();
   applyDifficultyToForm();
   applySoundToForm();
@@ -499,6 +559,7 @@ document.addEventListener("DOMContentLoaded", () => {
     persist();
   });
   $("#alarm-fields").addEventListener("change", () => {
+    syncTimeFromControls();
     readScheduleForm();
     state.alarm.time = $("#alarm-time").value || "07:30";
     state.alarm.genres = selectedGenres();

@@ -55,5 +55,5 @@ for (const level of ['easy', 'normal', 'hard']) {
     }
   }
 }
-assert.equal(types.size, 7);
-console.log('PASS: 210 math problems rendered; integral bounds, combination subscripts, matrix cells, formula/prose separation, focusable overflow');
+assert.equal(types.size, 8);
+console.log('PASS: 240 math problems rendered; integral bounds, combination subscripts, matrix cells, formula/prose separation, focusable overflow');

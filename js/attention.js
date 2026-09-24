@@ -25,7 +25,7 @@ const Attention = {
   notify() {
     try {
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("絶起ヘルパー", { body: "起きろ。問題を解くまで止まらない。" });
+        new Notification("絶起絶帰ヘルパー", { body: "起きろ。問題を解くまで止まらない。" });
       }
     } catch { /* 同上 */ }
   },
